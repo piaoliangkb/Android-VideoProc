@@ -24,41 +24,64 @@ public class MainActivity extends AppCompatActivity {
         Button mediacodecEncBt = findViewById(R.id.mediacodec_enc);
         Button mediacodecDecBt = findViewById(R.id.mediacodec_dec);
 
+        /*
+         *  Software encoding using FFmpeg
+         */
         ffmpegSWEncBt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: FFmpeg software encoding start");
+                FFmpegOp.SoftwareEncode();
             }
         });
-        
+
+        /*
+         * Software decoding using FFmpeg
+         */
         ffmpegSWDecBt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: FFmpeg software decoding start");
+                FFmpegOp.SoftwareDecode();
             }
         });
-        
+
+        /*
+         * Hardware encoding using FFmpeg
+         */
         ffmpegHWEncBt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: FFmpeg hardware encoding start");
             }
         });
-        
+
+        /*
+         * Hardware decoding using FFmpeg
+         */
         ffmpegHWDecBt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: FFmpeg hardware decoding start");
+
+                String localPath = getFilesDir().getAbsolutePath();
+                FFmpegOp.HardwareDecode(localPath);
             }
         });
-        
+
+        /*
+         * Mediacodec encoding
+         */
         mediacodecEncBt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: MediaCodec encoding start");
             }
         });
-        
+
+        /*
+         * Mediacodec decoding
+         */
         mediacodecDecBt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
