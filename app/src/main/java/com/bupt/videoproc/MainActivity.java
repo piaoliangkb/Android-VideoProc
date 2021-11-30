@@ -2,13 +2,18 @@ package com.bupt.videoproc;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.media.MediaCodec;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "VideoProc";
+    private static ExecutorService service = Executors.newFixedThreadPool(3);
 
 
     @Override
@@ -31,7 +36,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: FFmpeg software encoding start");
-                FFmpegOp.SoftwareEncode();
+                service.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        FFmpegOp.SoftwareEncode();
+                    }
+                });
             }
         });
 
@@ -42,7 +52,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: FFmpeg software decoding start");
-                FFmpegOp.SoftwareDecode();
+                service.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        FFmpegOp.SoftwareDecode();
+                    }
+                });
             }
         });
 
@@ -63,9 +78,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: FFmpeg hardware decoding start");
-
-                String localPath = getFilesDir().getAbsolutePath();
-                FFmpegOp.HardwareDecode(localPath);
+                service.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        String localPath = getFilesDir().getAbsolutePath();
+                        FFmpegOp.HardwareDecode(localPath);
+                    }
+                });
             }
         });
 
@@ -76,6 +95,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: MediaCodec encoding start");
+                service.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        MediaCodecOp.encodeVideoFromBuffer();
+                    }
+                });
             }
         });
 
