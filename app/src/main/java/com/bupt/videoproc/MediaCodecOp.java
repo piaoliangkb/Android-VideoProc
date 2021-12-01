@@ -3,10 +3,13 @@ package com.bupt.videoproc;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
+import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.opengl.GLES20;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.FrameMetrics;
+import android.view.Surface;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -28,6 +31,43 @@ public class MediaCodecOp {
     private static int mWidth = 4096;
     private static int mHeight = 2160;
     private static int mBitRat = (int) 4.8 * mWidth * mHeight;
+
+    public static void testMediaExtractor(String appPath) {
+        // Test MediaExtractor from current file
+        String videoPath = appPath + "/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(videoPath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        int numTracks = extractor.getTrackCount();
+        for (int i = 0; i < numTracks; ++i) {
+            MediaFormat format = extractor.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            Log.i(TAG, "testFromDocs: the mime for track " + i + " is " + mime);
+        }
+
+        // Create codec by MIME string (We use the video MIME, in case of H.264 video, the string is video/avc)
+        MediaFormat format = extractor.getTrackFormat(0);
+        String decoderName = new MediaCodecList(MediaCodecList.ALL_CODECS).findDecoderForFormat(format);
+        Log.i(TAG, "testMediaExtractor: the decoder name is" + decoderName);
+        try {
+            MediaCodec decoder = MediaCodec.createByCodecName(decoderName);
+            Log.i(TAG, "testMediaExtractor: " + decoder.getName() + ", " + decoder.getCodecInfo());
+
+            // Handle a raw buffer using an input Surface object
+            // Note: Call release() on this surface when done
+            Surface inputSurface = decoder.createInputSurface();
+
+
+            // Configure decoder using MediaFormat object extracted from file
+            decoder.configure(format, null, null, 0);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     public static void encodeVideoFromBuffer() {
         MediaCodec encoder = null;
@@ -66,6 +106,10 @@ public class MediaCodecOp {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void doEncodeVideoFromBuffer(MediaCodec encoder, int encoderColorFormat, MediaCodec decoder, boolean toSurface) {
+        final int TIMEOUT_USEC = 10000;
     }
 
 

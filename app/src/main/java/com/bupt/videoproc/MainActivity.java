@@ -29,6 +29,8 @@ public class MainActivity extends AppCompatActivity {
         Button mediacodecEncBt = findViewById(R.id.mediacodec_enc);
         Button mediacodecDecBt = findViewById(R.id.mediacodec_dec);
 
+        Button test = findViewById(R.id.unit_test);
+
         /*
          *  Software encoding using FFmpeg
          */
@@ -111,6 +113,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: MediaCodec decoding start");
+            }
+        });
+
+        test.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.i(TAG, "onClick: Unit test button");
+
+                MediaCodecOp.testMediaExtractor(getFilesDir().getAbsolutePath());
             }
         });
     }
