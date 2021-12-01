@@ -7,46 +7,35 @@ import com.arthenica.ffmpegkit.FFmpegSession;
 import com.arthenica.ffmpegkit.ReturnCode;
 import com.arthenica.ffmpegkit.SessionState;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 public class FFmpegOp {
 
     private static final String TAG = "VideoOperation";
-    private static final ExecutorService executorService = Executors.newFixedThreadPool(3);
-
 
     public static void HardwareDecode(String localPath) {
         Log.i(TAG, "h264HardwareDecode: localPath is " + localPath);
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                FFmpegSession session = FFmpegKit.executeAsync("-loglevel verbose -benchmark -y -vsync 0 -an" +
-                        " -hwaccel mediacodec" +
-                        " -c:v hevc_mediacodec" +
-                        " -i /data/local/tmp/1080p_hevc.mp4" +
-//                        " -i " + localPath + "/1080p_h264.mp4" +
-                        " -f null -", session1 -> {
-                    SessionState state = session1.getState();
-                    ReturnCode returnCode = session1.getReturnCode();
-                    Log.d(TAG, String.format("FFmpeg process exited with state %s and rc %s.%s", state, returnCode, session1.getFailStackTrace()));
-                    Log.i(TAG, "apply: Duration = " + session1.getDuration());
-                });
-
-                if (ReturnCode.isSuccess(session.getReturnCode())) {
-                    Log.i(TAG, "ffmpegOperation: session success =====================");
-                    Log.i(TAG, "ffmpegOperation: " + session.getOutput());
-                    Log.i(TAG, "ffmpegOperation: Duration = " + session.getDuration());
-                } else if (ReturnCode.isCancel(session.getReturnCode())) {
-                    Log.i(TAG, "ffmpegOperation: session cancel");
-                    Log.i(TAG, "ffmpegOperation: " + session.getAllLogsAsString());
-                } else {
-                    Log.i(TAG, "ffmpegOperation: session failed");
-                    Log.d(TAG, String.format("Command failed with state %s and rc %s.%s",
-                            session.getState(), session.getReturnCode(), session.getFailStackTrace()));
-                }
-            }
+        FFmpegSession session = FFmpegKit.executeAsync("-loglevel verbose -benchmark -y -vsync 0 -an" +
+                " -hwaccel mediacodec" +
+                " -c:v h264_mediacodec" +
+                " -i " + localPath + "/netflix_dinnerscene_1080p_60fps_h264.mp4" +
+                " -f null -", session1 -> {
+            SessionState state = session1.getState();
+            ReturnCode returnCode = session1.getReturnCode();
+            Log.d(TAG, String.format("FFmpeg process exited with state %s and rc %s.%s", state, returnCode, session1.getFailStackTrace()));
+            Log.i(TAG, "apply: Duration = " + session1.getDuration());
         });
+
+        if (ReturnCode.isSuccess(session.getReturnCode())) {
+            Log.i(TAG, "ffmpegOperation: session success =====================");
+            Log.i(TAG, "ffmpegOperation: " + session.getOutput());
+            Log.i(TAG, "ffmpegOperation: Duration = " + session.getDuration());
+        } else if (ReturnCode.isCancel(session.getReturnCode())) {
+            Log.i(TAG, "ffmpegOperation: session cancel");
+            Log.i(TAG, "ffmpegOperation: " + session.getAllLogsAsString());
+        } else {
+            Log.i(TAG, "ffmpegOperation: session failed");
+            Log.d(TAG, String.format("Command failed with state %s and rc %s.%s",
+                    session.getState(), session.getReturnCode(), session.getFailStackTrace()));
+        }
     }
 
     public static void SoftwareDecode() {
