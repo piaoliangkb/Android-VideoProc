@@ -35,6 +35,7 @@ public class MediaCodecOp {
     public static void testMediaExtractor(String appPath) {
         // Test MediaExtractor from current file
         String videoPath = appPath + "/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
+        Log.i(TAG, "testMediaExtractor: videoPath: " + videoPath);
         MediaExtractor extractor = new MediaExtractor();
         try {
             extractor.setDataSource(videoPath);
@@ -56,13 +57,44 @@ public class MediaCodecOp {
             MediaCodec decoder = MediaCodec.createByCodecName(decoderName);
             Log.i(TAG, "testMediaExtractor: " + decoder.getName() + ", " + decoder.getCodecInfo());
 
-            // Handle a raw buffer using an input Surface object
-            // Note: Call release() on this surface when done
-            Surface inputSurface = decoder.createInputSurface();
-
-
             // Configure decoder using MediaFormat object extracted from file
             decoder.configure(format, null, null, 0);
+            decoder.start();
+
+
+            boolean videoExtractDone = false;
+            while (!videoExtractDone) {
+                // !!!! Start from here !!!!
+                // How to pass file as input surface to a decoder?
+                int inputIndex = decoder.dequeueInputBuffer(-1);
+                Log.i(TAG, "testMediaExtractor: inputIndex: " + inputIndex);
+
+                if (inputIndex >= 0) {
+                    // Read a piece or a frame of data
+                    ByteBuffer byteBuffer = decoder.getInputBuffer(inputIndex);
+                    int size = extractor.readSampleData(byteBuffer, 0);
+                    long time = extractor.getSampleTime();
+                    Log.i(TAG, "testMediaExtractor: sampleSize: " + size + ", time: " + time);
+
+                    if (size > 0 && time > 0) {
+                        decoder.queueInputBuffer(inputIndex, 0, size, time, extractor.getSampleFlags());
+                    }
+                } else {
+                    decoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                    videoExtractDone = true;
+                }
+
+                MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+                int outIndex = decoder.dequeueOutputBuffer(bufferInfo, 0);
+                Log.d(TAG, "outIndex: " + outIndex);
+                if (outIndex >= 0) {
+                    decoder.releaseOutputBuffer(outIndex, true);
+                }
+            }
+
+            decoder.stop();
+            decoder.release();
+            extractor.release();
 
         } catch (IOException e) {
             e.printStackTrace();

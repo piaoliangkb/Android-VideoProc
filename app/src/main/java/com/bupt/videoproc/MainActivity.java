@@ -120,8 +120,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Log.i(TAG, "onClick: Unit test button");
-
-                MediaCodecOp.testMediaExtractor(getFilesDir().getAbsolutePath());
+                service.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        MediaCodecOp.testMediaExtractor(getFilesDir().getAbsolutePath());
+                    }
+                });
             }
         });
     }
