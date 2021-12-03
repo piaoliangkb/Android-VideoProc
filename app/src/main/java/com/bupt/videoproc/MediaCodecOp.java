@@ -5,18 +5,10 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.opengl.GLES20;
-import android.provider.MediaStore;
 import android.util.Log;
-import android.view.FrameMetrics;
-import android.view.Surface;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-
-import javax.microedition.khronos.opengles.GL10;
 
 
 public class MediaCodecOp {
@@ -42,10 +34,15 @@ public class MediaCodecOp {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
         int numTracks = extractor.getTrackCount();
         for (int i = 0; i < numTracks; ++i) {
             MediaFormat format = extractor.getTrackFormat(i);
             String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("video/")) {
+                extractor.selectTrack(i);  // This line is important!!!!
+                break;
+            }
             Log.i(TAG, "testFromDocs: the mime for track " + i + " is " + mime);
         }
 
@@ -59,10 +56,13 @@ public class MediaCodecOp {
 
             // Configure decoder using MediaFormat object extracted from file
             decoder.configure(format, null, null, 0);
+
+            // Start decoder
             decoder.start();
 
 
             boolean videoExtractDone = false;
+            int frameNum = 0;
             while (!videoExtractDone) {
                 // !!!! Start from here !!!!
                 // How to pass file as input surface to a decoder?
@@ -72,12 +72,15 @@ public class MediaCodecOp {
                 if (inputIndex >= 0) {
                     // Read a piece or a frame of data
                     ByteBuffer byteBuffer = decoder.getInputBuffer(inputIndex);
-                    int size = extractor.readSampleData(byteBuffer, 0);
+                    int size = extractor.readSampleData(byteBuffer, 0);  // This is the offset of byteBuffer
                     long time = extractor.getSampleTime();
                     Log.i(TAG, "testMediaExtractor: sampleSize: " + size + ", time: " + time);
 
-                    if (size > 0 && time > 0) {
+                    if (size > 0 && time >= 0) {
+                        frameNum++;
+                        Log.i(TAG, "testMediaExtractor: The " + frameNum + " frame is processing");
                         decoder.queueInputBuffer(inputIndex, 0, size, time, extractor.getSampleFlags());
+                        extractor.advance();  // Advance to the next sample
                     }
                 } else {
                     decoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
