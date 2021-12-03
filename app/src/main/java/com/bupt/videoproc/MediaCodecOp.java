@@ -17,14 +17,51 @@ public class MediaCodecOp {
 
     private static String TAG = "MediaCodecOp";
 
-    private static String MIME_TYPE = "video/avc";  // H.264 Video Coding
-    private static int FRAME_RATE = 60;  // fps
-    private static int IFRAME_INTERVAL = 10;  // 10 seconds between I-frames
-    private static int NUM_FRAMES = 1200;  // Total frames
+    public static void encodeVideoFromFileSync(String appPath) {
+        String rawFilePath = appPath + "/Netflix_DinnerScene_4K_60fps_yuv420p.yuv";
+        // String rawFilePath = appPath + "/Netflix_DinnerScene_1080p_60fps_yuv420p.yuv";  // Another file with low resolution
 
-    private static int mWidth = 4096;
-    private static int mHeight = 2160;
-    private static int mBitRat = (int) 4.8 * mWidth * mHeight;
+        String MIME_TYPE = "video/avc";  // H.264 Video Coding
+        int FRAME_RATE = 60;  // fps
+        int IFRAME_INTERVAL = 10;  // 10 seconds between I-frames
+        int NUM_FRAMES = 1200;  // Total frames
+
+        int WIDTH = 4096;
+        int HEIGHT = 2160;
+        int BITRATE = (int) 4.8 * WIDTH * HEIGHT;
+
+        try {
+            // Select codec
+            MediaCodecInfo codecInfo = selectEncCodec(MIME_TYPE);
+            if (codecInfo == null) {
+                Log.e(TAG, "encodeVideoFromBuffer: unable to find an appropriate codec for " + MIME_TYPE);
+                return;
+            }
+            Log.i(TAG, "encodeVideoFromBuffer: codec name " + codecInfo.getName());
+
+            // Select colorFormat
+            int colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
+            Log.i(TAG, "encodeVideoFromBuffer: found colorFormat: " + colorFormat);
+
+            MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, WIDTH, HEIGHT);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+            Log.i(TAG, "encodeVideoFromBuffer: format: " + format);
+
+            MediaCodec encoder = MediaCodec.createByCodecName(codecInfo.getName());
+            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            encoder.start();
+
+            // TODO: What to do here?
+
+            encoder.stop();
+            encoder.release();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     /**
      * Extractor frame by frame from an existing video file using MediaExtractor object, feed each
@@ -33,7 +70,7 @@ public class MediaCodecOp {
      *
      * @param appPath: application internal storage path.
      */
-    public static void testMediaExtractor(String appPath) {
+    public static void decodeVideoFromFileSync(String appPath) {
         // Test MediaExtractor from current file
         String videoPath = appPath + "/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
         MediaExtractor extractor = getMediaExtractor(videoPath);
@@ -94,41 +131,6 @@ public class MediaCodecOp {
             Log.i(TAG, "testMediaExtractor: end-to-end time in synchronize mode: " + (end - st));  // Pipeline releasing of a output buffer costs at most 1 ms
 
         } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void encodeVideoFromBuffer() {
-        MediaCodec encoder = null;
-        Log.i(TAG, "encodeVideoFromBuffer: Hallo");
-
-        try {
-            // Select codec
-            MediaCodecInfo codecInfo = selectEncCodec(MIME_TYPE);
-            if (codecInfo == null) {
-                Log.e(TAG, "encodeVideoFromBuffer: unable to find an appropriate codec for " + MIME_TYPE);
-                return;
-            }
-            Log.i(TAG, "encodeVideoFromBuffer: codec name " + codecInfo.getName());
-
-            // Select colorFormat
-            int colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
-            Log.i(TAG, "encodeVideoFromBuffer: found colorFormat: " + colorFormat);
-
-            MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, mWidth, mHeight);
-            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
-            format.setInteger(MediaFormat.KEY_BIT_RATE, mBitRat);
-            format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
-            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
-            Log.i(TAG, "encodeVideoFromBuffer: format: " + format);
-
-            encoder = MediaCodec.createByCodecName(codecInfo.getName());
-            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            encoder.start();
-
-            encoder.stop();
-            encoder.release();
-        } catch (Exception e) {
             e.printStackTrace();
         }
     }

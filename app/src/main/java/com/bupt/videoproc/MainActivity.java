@@ -100,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
                 service.submit(new Runnable() {
                     @Override
                     public void run() {
-                        MediaCodecOp.encodeVideoFromBuffer();
+                        MediaCodecOp.encodeVideoFromFileSync(getFilesDir().getAbsolutePath());
                     }
                 });
             }
@@ -126,11 +126,11 @@ public class MainActivity extends AppCompatActivity {
         test.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Log.i(TAG, "onClick: Unit test button");
+                Log.i(TAG, "onClick: this is the test button");
                 service.submit(new Runnable() {
                     @Override
                     public void run() {
-                        MediaCodecOp.testMediaExtractor(getFilesDir().getAbsolutePath());
+                        MediaCodecOp.decodeVideoFromFileSync(getFilesDir().getAbsolutePath());
                     }
                 });
             }
