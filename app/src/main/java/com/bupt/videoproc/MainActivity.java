@@ -41,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
                 service.submit(new Runnable() {
                     @Override
                     public void run() {
-                        FFmpegOp.SoftwareEncode();
+                        FFmpegOp.SoftwareEncode(getFilesDir().getAbsolutePath());
                     }
                 });
             }
@@ -57,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
                 service.submit(new Runnable() {
                     @Override
                     public void run() {
-                        FFmpegOp.SoftwareDecode();
+                        FFmpegOp.SoftwareDecode(getFilesDir().getAbsolutePath());
                     }
                 });
             }

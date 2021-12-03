@@ -7,6 +7,8 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -34,23 +36,7 @@ public class MediaCodecOp {
     public static void testMediaExtractor(String appPath) {
         // Test MediaExtractor from current file
         String videoPath = appPath + "/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
-        MediaExtractor extractor = new MediaExtractor();
-        try {
-            extractor.setDataSource(videoPath);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        int numTracks = extractor.getTrackCount();
-        for (int i = 0; i < numTracks; ++i) {
-            MediaFormat format = extractor.getTrackFormat(i);
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            if (mime.startsWith("video/")) {
-                extractor.selectTrack(i);  // This line is important!!!!
-                break;
-            }
-            Log.i(TAG, "testMediaExtractor: the mime for track " + i + " is " + mime);
-        }
+        MediaExtractor extractor = getMediaExtractor(videoPath);
 
         // Create codec by MIME string (We use the video MIME, in case of H.264 video, the string is video/avc)
         MediaFormat format = extractor.getTrackFormat(0);
@@ -66,6 +52,7 @@ public class MediaCodecOp {
             decoder.start();  // Start decoder
 
             int frameNum = 0;
+            long st = 0, end = 0;
             while (true) {
                 int inputIndex = decoder.dequeueInputBuffer(-1);  // Get the index of available input buffer
                 Log.i(TAG, "testMediaExtractor: inputIndex: " + inputIndex);
@@ -76,12 +63,16 @@ public class MediaCodecOp {
                     long time = extractor.getSampleTime();  // Get the presentation time of a sample frame
                     Log.i(TAG, "testMediaExtractor: sampleSize: " + size + ", time: " + time);
 
+                    if (time == 0) {
+                        st = System.currentTimeMillis();
+                    }
                     if (size > 0 && time >= 0) {
                         frameNum++;
                         Log.i(TAG, "testMediaExtractor: The " + frameNum + " frame is processing");
                         decoder.queueInputBuffer(inputIndex, 0, size, time, extractor.getSampleFlags());  // Enqueue a frame saved in inputBuffer at inputIndex
                         extractor.advance();  // Advance to the next sample
                     } else {
+                        end = System.currentTimeMillis();
                         // If size <= 0 or time < 0, means that the video is done break execution
                         Log.i(TAG, "testMediaExtractor: decoding finished, exit");
                         decoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
@@ -89,20 +80,18 @@ public class MediaCodecOp {
                     }
                 }
 
-                long st = System.currentTimeMillis();
                 MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
                 int outIndex = decoder.dequeueOutputBuffer(bufferInfo, 0);
                 Log.d(TAG, "outIndex: " + outIndex);
                 if (outIndex >= 0) {
                     decoder.releaseOutputBuffer(outIndex, false);  // Must release output buffer, else the process of encoding will be paused
                 }
-                long end = System.currentTimeMillis();
-                Log.i(TAG, "testMediaExtractor: release output buffer time: " + (end-st));  // Pipeline releasing of a output buffer costs at most 1 ms
             }
 
             decoder.stop();
             decoder.release();
             extractor.release();
+            Log.i(TAG, "testMediaExtractor: end-to-end time in synchronize mode: " + (end - st));  // Pipeline releasing of a output buffer costs at most 1 ms
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -144,7 +133,100 @@ public class MediaCodecOp {
         }
     }
 
+    /**
+     * Use the async approach to enqueue input buffer / dequeue output buffer instantly.
+     *
+     * @param appPath: application internal storage path.
+     */
     public static void decodeVideoFromFileAsync(String appPath) {
+        String videoPath = appPath + "/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
+        MediaExtractor extractor = getMediaExtractor(videoPath);
+
+        MediaFormat format = extractor.getTrackFormat(0);
+        String decoderName = new MediaCodecList(MediaCodecList.ALL_CODECS).findDecoderForFormat(format);
+        try {
+            MediaCodec decoder = MediaCodec.createByCodecName(decoderName);
+            decoder.setCallback(new MediaCodec.Callback() {
+                int frameNum = 0;
+                long st, end;
+
+                @Override
+                public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
+                    // Fill input buffer with index with frame extracted from extractor
+                    ByteBuffer inputBuffer = codec.getInputBuffer(index);
+                    int size = extractor.readSampleData(inputBuffer, 0);
+                    long time = extractor.getSampleTime();
+                    if (size > 0 && time >= 0) {
+                        if (time == 0) {
+                            st = System.currentTimeMillis();
+                        }
+                        codec.queueInputBuffer(index, 0, size, time, extractor.getSampleFlags());
+                        Log.i(TAG, "onInputBufferAvailable: enqueue " + frameNum + " frame with size: " + size + ", time: " + time);
+                        extractor.advance();
+                        frameNum++;
+                    } else {
+                        end = System.currentTimeMillis();
+                        codec.queueInputBuffer(index, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                        Log.i(TAG, "onInputBufferAvailable: total frames: " + frameNum + ", end-to-end time: " + (end - st) + " ms");
+                    }
+                }
+
+                @Override
+                public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
+                    codec.releaseOutputBuffer(index, false);
+                }
+
+                @Override
+                public void onError(@NonNull MediaCodec codec, @NonNull MediaCodec.CodecException e) {
+                    Log.i(TAG, "onError: decoder error");
+                }
+
+                @Override
+                public void onOutputFormatChanged(@NonNull MediaCodec codec, @NonNull MediaFormat format) {
+                    Log.i(TAG, "onOutputFormatChanged: no processing");
+                }
+            });
+
+            Log.i(TAG, "decodeVideoFromFileAsync: the decoder name: " + decoderName);
+            decoder.configure(format, null, null, 0);
+            decoder.start();
+
+            // Wait for processing to complete
+            // How to wait for processing finish
+            Thread.sleep(10000);
+
+            decoder.stop();
+            decoder.release();
+            extractor.release();
+
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Get a MediaExtractor object to track video track.
+     *
+     * @param videoPath: video path in application local storage.
+     * @return A MediaExtractor object.
+     */
+    private static MediaExtractor getMediaExtractor(String videoPath) {
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(videoPath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        int numTracks = extractor.getTrackCount();
+        for (int i = 0; i < numTracks; ++i) {
+            MediaFormat format = extractor.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("video/")) {
+                extractor.selectTrack(i);
+                break;
+            }
+        }
+        return extractor;
     }
 
 
