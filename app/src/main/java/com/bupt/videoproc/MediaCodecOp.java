@@ -24,10 +24,16 @@ public class MediaCodecOp {
     private static int mHeight = 2160;
     private static int mBitRat = (int) 4.8 * mWidth * mHeight;
 
+    /**
+     * Extractor frame by frame from an existing video file using MediaExtractor object, feed each
+     * frame to decoder's input buffer for decoding, remember to release decoder's output buffer
+     * to keep the decoding processing going on.
+     *
+     * @param appPath: application internal storage path.
+     */
     public static void testMediaExtractor(String appPath) {
         // Test MediaExtractor from current file
         String videoPath = appPath + "/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
-        Log.i(TAG, "testMediaExtractor: videoPath: " + videoPath);
         MediaExtractor extractor = new MediaExtractor();
         try {
             extractor.setDataSource(videoPath);
@@ -43,7 +49,7 @@ public class MediaCodecOp {
                 extractor.selectTrack(i);  // This line is important!!!!
                 break;
             }
-            Log.i(TAG, "testFromDocs: the mime for track " + i + " is " + mime);
+            Log.i(TAG, "testMediaExtractor: the mime for track " + i + " is " + mime);
         }
 
         // Create codec by MIME string (We use the video MIME, in case of H.264 video, the string is video/avc)
@@ -57,42 +63,41 @@ public class MediaCodecOp {
             // Configure decoder using MediaFormat object extracted from file
             decoder.configure(format, null, null, 0);
 
-            // Start decoder
-            decoder.start();
+            decoder.start();  // Start decoder
 
-
-            boolean videoExtractDone = false;
             int frameNum = 0;
-            while (!videoExtractDone) {
-                // !!!! Start from here !!!!
-                // How to pass file as input surface to a decoder?
-                int inputIndex = decoder.dequeueInputBuffer(-1);
+            while (true) {
+                int inputIndex = decoder.dequeueInputBuffer(-1);  // Get the index of available input buffer
                 Log.i(TAG, "testMediaExtractor: inputIndex: " + inputIndex);
 
                 if (inputIndex >= 0) {
-                    // Read a piece or a frame of data
-                    ByteBuffer byteBuffer = decoder.getInputBuffer(inputIndex);
-                    int size = extractor.readSampleData(byteBuffer, 0);  // This is the offset of byteBuffer
-                    long time = extractor.getSampleTime();
+                    ByteBuffer byteBuffer = decoder.getInputBuffer(inputIndex);  // Get byteBuffer by the index of input buffer
+                    int size = extractor.readSampleData(byteBuffer, 0);  // Get the size of a sample frame
+                    long time = extractor.getSampleTime();  // Get the presentation time of a sample frame
                     Log.i(TAG, "testMediaExtractor: sampleSize: " + size + ", time: " + time);
 
                     if (size > 0 && time >= 0) {
                         frameNum++;
                         Log.i(TAG, "testMediaExtractor: The " + frameNum + " frame is processing");
-                        decoder.queueInputBuffer(inputIndex, 0, size, time, extractor.getSampleFlags());
+                        decoder.queueInputBuffer(inputIndex, 0, size, time, extractor.getSampleFlags());  // Enqueue a frame saved in inputBuffer at inputIndex
                         extractor.advance();  // Advance to the next sample
+                    } else {
+                        // If size <= 0 or time < 0, means that the video is done break execution
+                        Log.i(TAG, "testMediaExtractor: decoding finished, exit");
+                        decoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                        break;
                     }
-                } else {
-                    decoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                    videoExtractDone = true;
                 }
 
+                long st = System.currentTimeMillis();
                 MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
                 int outIndex = decoder.dequeueOutputBuffer(bufferInfo, 0);
                 Log.d(TAG, "outIndex: " + outIndex);
                 if (outIndex >= 0) {
-                    decoder.releaseOutputBuffer(outIndex, true);
+                    decoder.releaseOutputBuffer(outIndex, false);  // Must release output buffer, else the process of encoding will be paused
                 }
+                long end = System.currentTimeMillis();
+                Log.i(TAG, "testMediaExtractor: release output buffer time: " + (end-st));  // Pipeline releasing of a output buffer costs at most 1 ms
             }
 
             decoder.stop();
@@ -132,19 +137,14 @@ public class MediaCodecOp {
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             encoder.start();
 
-            if (encoder != null) {
-                encoder.stop();
-                encoder.release();
-            }
-
-
+            encoder.stop();
+            encoder.release();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void doEncodeVideoFromBuffer(MediaCodec encoder, int encoderColorFormat, MediaCodec decoder, boolean toSurface) {
-        final int TIMEOUT_USEC = 10000;
+    public static void decodeVideoFromFileAsync(String appPath) {
     }
 
 

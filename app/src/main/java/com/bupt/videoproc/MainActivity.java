@@ -113,6 +113,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 Log.i(TAG, "onClick: MediaCodec decoding start");
+
+                service.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        MediaCodecOp.decodeVideoFromFileAsync(getFilesDir().getAbsolutePath());
+                    }
+                });
             }
         });
 
