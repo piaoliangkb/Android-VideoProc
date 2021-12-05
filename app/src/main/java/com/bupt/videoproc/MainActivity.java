@@ -130,7 +130,8 @@ public class MainActivity extends AppCompatActivity {
                 service.submit(new Runnable() {
                     @Override
                     public void run() {
-                        MediaCodecOp.decodeVideoFromFileSync(getFilesDir().getAbsolutePath());
+                        // MediaCodecOp.decodeVideoFromFileSync(getFilesDir().getAbsolutePath());
+                        MediaCodecOp.procRawVideoFile(getFilesDir().getAbsolutePath());
                     }
                 });
             }

@@ -6,11 +6,16 @@ import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.util.Log;
+import android.view.Surface;
 
 import androidx.annotation.NonNull;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 
 
 public class MediaCodecOp {
@@ -52,15 +57,55 @@ public class MediaCodecOp {
 
             MediaCodec encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            Surface inputSurface = encoder.createInputSurface();  // This can only be called between configure and start method
             encoder.start();
 
-            // TODO: What to do here?
+            // TODO: What to do here? Use Surface to hold raw video data?
+            // while (true) {
+            //      int inputIndex = encoder.dequeueInputBuffer(-1);
+            //      if (inputIndex >= 0) {
+            //          ByteBuffer byteBuffer = encoder.getInputBuffer(inputIndex);
+            //          // Fill byteBuffer with raw data read from file
+            //
+            //          encoder.queueInputBuffer(inputIndex, 0, 0, 0, 0);
+            //      }
+            //      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+            //      int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0);
+            //      encoder.releaseOutputBuffer(outputIndex, false);
+            // }
 
             encoder.stop();
             encoder.release();
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static void procRawVideoFile(String appPath) {
+        String rawPath = appPath + "/Netflix_DinnerScene_1080p_60fps_yuv420p.yuv";
+        // String rawPath = appPath + "/netflix_dinnerscene_1080p_60fps_h264.mp4";
+        File rawFile = new File(rawPath);
+        try {
+            FileInputStream is = new FileInputStream(rawPath);
+            int i = 0;
+            int totalFrame = 0;
+            while (i != -1) {
+                totalFrame ++;
+                Log.i(TAG, "procRawVideoFile: frame: " + totalFrame);
+                byte[] buf = new byte[3110400];
+                i = is.read(buf);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        Log.i(TAG, "procRawVideoFile: file length: " + rawFile.length());
+        Log.i(TAG, "procRawVideoFile: each frame length: " + (rawFile.length() / 60.0));  // Each frame is about 3MB
+        // try {
+        //     byte[] fileContent = Files.readAllBytes(rawFile.toPath());
+        //     Log.i(TAG, "procRawVideoFile: fileContent length: " + fileContent.length);
+        // } catch (IOException e) {
+        //     e.printStackTrace();
+        // }
     }
 
     /**

@@ -48,7 +48,7 @@ Release the codec by calling `release` method
 
 ### Using Input Surface
 
-When using an input Surface, the buffers are automatically passed from the input surface to the codec
+When using an input Surface, the buffers are automatically passed from the input surface to the codec.
 
 ### Using Output Surface
 
