@@ -5,6 +5,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.media.MediaCodec;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
 
@@ -14,12 +16,16 @@ import java.util.concurrent.Executors;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "VideoProc";
     private static ExecutorService service = Executors.newFixedThreadPool(3);
+    private SurfaceView surfaceView;
+    private SurfaceHolder surfaceHolder;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        surfaceView = findViewById(R.id.surfaceView);
+        surfaceHolder = surfaceView.getHolder();
 
 
         Button ffmpegSWEncBt = findViewById(R.id.ffmpeg_sw_enc);

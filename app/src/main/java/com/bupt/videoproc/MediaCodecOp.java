@@ -1,16 +1,22 @@
 package com.bupt.videoproc;
 
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.MediaMuxer;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -56,18 +62,18 @@ public class MediaCodecOp {
             30,
             1920,
             1080,
-            1498*1000*8
+            1498 * 1000 * 8
     );
 
     private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_1s_h264 = new RawVideoFile(
-        "1s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
+            "1s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
             "h264",
             3110400,
             60,
             60,
             1920,
             1080,
-            1498*1000*8
+            1498 * 1000 * 8
     );
 
     private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_2s_h264 = new RawVideoFile(
@@ -78,7 +84,7 @@ public class MediaCodecOp {
             120,
             1920,
             1080,
-            1498*1000*8
+            1498 * 1000 * 8
     );
 
     private static final RawVideoFile Netflix_DinnerScene_4K_60fps_1s_h264 = new RawVideoFile(
@@ -89,7 +95,7 @@ public class MediaCodecOp {
             60,
             4096,
             2160,
-            10027*1000*8
+            10027 * 1000 * 8
     );
 
     private static final RawVideoFile Netflix_DinnerScene_4K_30fps_1s_h264 = new RawVideoFile(
@@ -100,17 +106,20 @@ public class MediaCodecOp {
             30,
             4096,
             2160,
-            10027*1000*8
+            10027 * 1000 * 8
     );
 
 
     public static void encodeVideoFromFileSync(String appPath) {
-        RawVideoFile video = Netflix_DinnerScene_4K_30fps_1s_h264;
+        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_2s_h264;
         Log.i(TAG, "encodeVideoFromFileSync: encoding: " + video.filename);
         String MIME_TYPE = video.type;  // H.264 or Hevc encoding
         double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
 
         try {
+            // Initialize a MediaMuxer
+            MediaMuxer muxer = new MediaMuxer(appPath + "/test-video.mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+
             // Select codec
             MediaCodecInfo codecInfo = selectEncCodec(MIME_TYPE);
             if (codecInfo == null) {
@@ -127,14 +136,18 @@ public class MediaCodecOp {
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
             format.setInteger(MediaFormat.KEY_BIT_RATE, video.bitrate);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, video.frameRate);
-            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 10);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);  // The default kayframe interval in FFmpeg is 2 seconds
             Log.i(TAG, "encodeVideoFromBuffer: format: " + format);
 
             MediaCodec encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            // TODO: is this inputSurface useless?
+            int videoTrack = muxer.addTrack(encoder.getOutputFormat());
+            Log.i(TAG, "encodeVideoFromFileSync: ");
+            // TODO: we should use InputSurface to pass raw video data? Now to question comes to:
+            // how to pass raw video frame bytes to a Surface object?
             // Surface inputSurface = encoder.createInputSurface();  // This can only be called between configure and start method
             encoder.start();
+            muxer.start();
 
             List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
             int frameNum = frameList.size();
@@ -155,13 +168,18 @@ public class MediaCodecOp {
                 }
                 MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
                 int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0);
+                Log.i(TAG, "encodeVideoFromFileSync: bufferInfo: " + bufferInfo);
                 if (outputIndex >= 0) {
+                    // Add outputBuffer to MediaMuxer
+                    ByteBuffer outputBuffer = encoder.getOutputBuffer(outputIndex);
+                    muxer.writeSampleData(videoTrack, outputBuffer, bufferInfo);
+
                     encoder.releaseOutputBuffer(outputIndex, false);
                     Log.i(TAG, "encodeVideoFromFileSync: dequeue output buffer index: " + outputIndex);
                 }
             }
             end = System.currentTimeMillis();
-            Log.i(TAG, "encodeVideoFromFileSync: end-to-end encoding time for " + frameNum + " frames: " + (end-st));
+            Log.i(TAG, "encodeVideoFromFileSync: end-to-end encoding time for " + frameNum + " frames: " + (end - st));
             // Enqueue end-of-stream flag
             int inputIndex = encoder.dequeueInputBuffer(-1);
             if (inputIndex >= 0) {
@@ -170,9 +188,41 @@ public class MediaCodecOp {
 
             encoder.stop();
             encoder.release();
+            muxer.stop();
+            muxer.release();
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static YuvImage createYuvImage(RawVideoFile video, ByteBuffer buffer) {
+        YuvImage image = new YuvImage(buffer.array(), ImageFormat.YUV_420_888, video.width, video.height, null);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        image.compressToJpeg(new Rect(0, 0, image.getWidth(), image.getHeight()), 50, out);
+        FileOutputStream os = null;
+        try {
+            os = new FileOutputStream("test-image.jpeg");
+            out.writeTo(os);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return image;
+    }
+
+    /**
+     * Using MediaMuxer object to create a encoded video file
+     */
+    public static void createEncodeVideoFile() {
+        try {
+            MediaMuxer muxer = new MediaMuxer("test-video.mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            MediaFormat videoFormat = new MediaFormat();
+            int videoTrackIndex = muxer.addTrack(videoFormat);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
     }
 
     /**
