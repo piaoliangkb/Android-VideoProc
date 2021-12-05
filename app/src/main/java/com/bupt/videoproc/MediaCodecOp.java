@@ -6,34 +6,109 @@ import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.util.Log;
-import android.view.Surface;
 
 import androidx.annotation.NonNull;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
+
+class RawVideoFile {
+    public String filename;
+    public String type;
+    public int eachFrameSize;
+    public int frameRate;
+    public int totalFrameNum;
+    public int width;
+    public int height;
+    public int bitrate;
+
+    public RawVideoFile(String filename, String type, int eachFrameSize, int frameRate, int totalFrameNum, int width, int height, int bitrate) {
+        this.filename = filename;
+        if ("h264".equals(type)) {
+            this.type = "video/avc";
+        } else if ("hevc".equals(type)) {
+            this.type = "video/hevc";
+        } else {
+            this.type = "unknown";
+        }
+        this.eachFrameSize = eachFrameSize;
+        this.frameRate = frameRate;
+        this.totalFrameNum = totalFrameNum;
+        this.width = width;
+        this.height = height;
+        this.bitrate = bitrate;  // bits/sec
+    }
+}
 
 
 public class MediaCodecOp {
 
-    private static String TAG = "MediaCodecOp";
+    private static final String TAG = "MediaCodecOp";
+    private static final RawVideoFile Netflix_DinnerScene_1080p_30fps_1s_h264 = new RawVideoFile(
+            "1s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
+            "h264",
+            3110400,
+            30,
+            30,
+            1920,
+            1080,
+            1498*1000*8
+    );
+
+    private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_1s_h264 = new RawVideoFile(
+        "1s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
+            "h264",
+            3110400,
+            60,
+            60,
+            1920,
+            1080,
+            1498*1000*8
+    );
+
+    private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_2s_h264 = new RawVideoFile(
+            "2s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
+            "h264",
+            3110400,
+            60,
+            120,
+            1920,
+            1080,
+            1498*1000*8
+    );
+
+    private static final RawVideoFile Netflix_DinnerScene_4K_60fps_1s_h264 = new RawVideoFile(
+            "1s_Netflix_DinnerScene_4K_60fps_yuv420p.yuv",
+            "h264",
+            13271040,
+            60,
+            60,
+            4096,
+            2160,
+            10027*1000*8
+    );
+
+    private static final RawVideoFile Netflix_DinnerScene_4K_30fps_1s_h264 = new RawVideoFile(
+            "1s_Netflix_DinnerScene_4K_30fps_yuv420p.yuv",
+            "h264",
+            13271040,
+            30,
+            30,
+            4096,
+            2160,
+            10027*1000*8
+    );
+
 
     public static void encodeVideoFromFileSync(String appPath) {
-        String rawFilePath = appPath + "/Netflix_DinnerScene_4K_60fps_yuv420p.yuv";
-        // String rawFilePath = appPath + "/Netflix_DinnerScene_1080p_60fps_yuv420p.yuv";  // Another file with low resolution
-
-        String MIME_TYPE = "video/avc";  // H.264 Video Coding
-        int FRAME_RATE = 60;  // fps
-        int IFRAME_INTERVAL = 10;  // 10 seconds between I-frames
-        int NUM_FRAMES = 1200;  // Total frames
-
-        int WIDTH = 4096;
-        int HEIGHT = 2160;
-        int BITRATE = (int) 4.8 * WIDTH * HEIGHT;
+        RawVideoFile video = Netflix_DinnerScene_4K_30fps_1s_h264;
+        Log.i(TAG, "encodeVideoFromFileSync: encoding: " + video.filename);
+        String MIME_TYPE = video.type;  // H.264 or Hevc encoding
+        double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
 
         try {
             // Select codec
@@ -48,31 +123,50 @@ public class MediaCodecOp {
             int colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
             Log.i(TAG, "encodeVideoFromBuffer: found colorFormat: " + colorFormat);
 
-            MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, WIDTH, HEIGHT);
+            MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, video.width, video.height);
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
-            format.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE);
-            format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
-            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, video.bitrate);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, video.frameRate);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 10);
             Log.i(TAG, "encodeVideoFromBuffer: format: " + format);
 
             MediaCodec encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            Surface inputSurface = encoder.createInputSurface();  // This can only be called between configure and start method
+            // TODO: is this inputSurface useless?
+            // Surface inputSurface = encoder.createInputSurface();  // This can only be called between configure and start method
             encoder.start();
 
-            // TODO: What to do here? Use Surface to hold raw video data?
-            // while (true) {
-            //      int inputIndex = encoder.dequeueInputBuffer(-1);
-            //      if (inputIndex >= 0) {
-            //          ByteBuffer byteBuffer = encoder.getInputBuffer(inputIndex);
-            //          // Fill byteBuffer with raw data read from file
-            //
-            //          encoder.queueInputBuffer(inputIndex, 0, 0, 0, 0);
-            //      }
-            //      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-            //      int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0);
-            //      encoder.releaseOutputBuffer(outputIndex, false);
-            // }
+            List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
+            int frameNum = frameList.size();
+            int index = 0;  // Start from the first frame in frameList
+            long st = System.currentTimeMillis(), end;
+
+            while (index < frameNum) {
+                ByteBuffer frame = frameList.get(index);
+                int inputIndex = encoder.dequeueInputBuffer(-1);
+                if (inputIndex >= 0) {
+                    ByteBuffer byteBuffer = encoder.getInputBuffer(inputIndex);
+                    // Fill byteBuffer with raw data read from file
+                    frame.rewind();
+                    byteBuffer.put(frame);
+                    encoder.queueInputBuffer(inputIndex, 0, video.eachFrameSize, (long) (index * EACH_FRAME_TIME_SLOT), 0);
+                    Log.i(TAG, "encodeVideoFromFileSync: input buffer index: " + inputIndex + ", frame: " + index);
+                    index++;  // Move to the next frame
+                }
+                MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+                int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0);
+                if (outputIndex >= 0) {
+                    encoder.releaseOutputBuffer(outputIndex, false);
+                    Log.i(TAG, "encodeVideoFromFileSync: dequeue output buffer index: " + outputIndex);
+                }
+            }
+            end = System.currentTimeMillis();
+            Log.i(TAG, "encodeVideoFromFileSync: end-to-end encoding time for " + frameNum + " frames: " + (end-st));
+            // Enqueue end-of-stream flag
+            int inputIndex = encoder.dequeueInputBuffer(-1);
+            if (inputIndex >= 0) {
+                encoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+            }
 
             encoder.stop();
             encoder.release();
@@ -81,31 +175,39 @@ public class MediaCodecOp {
         }
     }
 
-    public static void procRawVideoFile(String appPath) {
-        String rawPath = appPath + "/Netflix_DinnerScene_1080p_60fps_yuv420p.yuv";
-        // String rawPath = appPath + "/netflix_dinnerscene_1080p_60fps_h264.mp4";
+    /**
+     * Processing a raw video file in YUV420P pixel format, returns a List object containing ByteBuffer
+     * object of each frame.
+     *
+     * @param appPath: application internal storage path.
+     */
+    public static List<ByteBuffer> procRawVideoFile(String appPath, RawVideoFile rawVideoFile) {
+        String rawPath = appPath + "/" + rawVideoFile.filename;
+        int frameSize = rawVideoFile.eachFrameSize;
+
         File rawFile = new File(rawPath);
+        Log.i(TAG, "procRawVideoFile: file length: " + rawFile.length());
+        // NOTE: use ArrayList to reduce the get time
+        List<ByteBuffer> byteBufferList = new ArrayList<>();
         try {
             FileInputStream is = new FileInputStream(rawPath);
             int i = 0;
-            int totalFrame = 0;
+            // int totalFrame = 0;
             while (i != -1) {
-                totalFrame ++;
-                Log.i(TAG, "procRawVideoFile: frame: " + totalFrame);
-                byte[] buf = new byte[3110400];
+                // totalFrame++;
+                // Log.i(TAG, "procRawVideoFile: frame: " + totalFrame);
+                byte[] buf = new byte[frameSize];
                 i = is.read(buf);
+                if (i != -1) {
+                    ByteBuffer buffer = ByteBuffer.wrap(buf);
+                    byteBufferList.add(buffer);
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
-        Log.i(TAG, "procRawVideoFile: file length: " + rawFile.length());
-        Log.i(TAG, "procRawVideoFile: each frame length: " + (rawFile.length() / 60.0));  // Each frame is about 3MB
-        // try {
-        //     byte[] fileContent = Files.readAllBytes(rawFile.toPath());
-        //     Log.i(TAG, "procRawVideoFile: fileContent length: " + fileContent.length);
-        // } catch (IOException e) {
-        //     e.printStackTrace();
-        // }
+        Log.i(TAG, "procRawVideoFile: frame size in byteBufferList: " + byteBufferList.size());
+        return byteBufferList;
     }
 
     /**
