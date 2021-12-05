@@ -12,74 +12,79 @@
         android:layout_height="wrap_content"
         android:text="FFMPEG SW ENC"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/ffmpeg_sw_dec"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        tools:layout_editor_absoluteY="49dp" />
+        tools:layout_editor_absoluteY="45dp" />
 
     <Button
         android:id="@+id/ffmpeg_sw_dec"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
         android:text="FFMPEG SW DEC"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.496"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_sw_enc" />
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/ffmpeg_sw_enc"
+        tools:layout_editor_absoluteY="45dp" />
 
     <Button
         android:id="@+id/ffmpeg_hw_enc"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
         android:text="FFMPEG HW ENC"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/ffmpeg_hw_dec"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_sw_dec" />
+        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_sw_enc" />
 
     <Button
         android:id="@+id/ffmpeg_hw_dec"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
         android:text="FFMPEG HW DEC"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_hw_enc" />
+        app:layout_constraintStart_toEndOf="@+id/ffmpeg_hw_enc"
+        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_sw_dec" />
 
     <Button
         android:id="@+id/mediacodec_enc"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
         android:text="MediaCodec ENC"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/mediacodec_dec"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_hw_dec" />
+        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_hw_enc" />
 
     <Button
         android:id="@+id/mediacodec_dec"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
         android:text="MediaCodec DEC"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/mediacodec_enc" />
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toEndOf="@+id/mediacodec_enc"
+        app:layout_constraintTop_toBottomOf="@+id/ffmpeg_hw_dec" />
 
     <Button
         android:id="@+id/unit_test"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="16dp"
         android:text="Test"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintHorizontal_bias="0.198"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/mediacodec_dec" />
+        app:layout_constraintTop_toBottomOf="@+id/mediacodec_enc" />
+
+    <SurfaceView
+        android:id="@+id/surfaceView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        tools:layout_editor_absoluteX="165dp"
+        tools:layout_editor_absoluteY="356dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
