@@ -110,6 +110,88 @@ public class MediaCodecOp {
             10027 * 1000
     );
 
+    public static void encodeVideoFromFileAsync(String appPath) {
+        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_2s_h264;
+        Log.i(TAG, "encodeVideoFromFileAsync: encoding file asynchronously: " + video.filename);
+        String MIME_TYPE = video.type;
+        double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
+        MediaCodec encoder;
+        MediaMuxer muxer;
+        try {
+            muxer = new MediaMuxer(appPath + "/test-video.mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            MediaCodecInfo codecInfo = selectEncCodec(MIME_TYPE);
+            if (codecInfo == null) {
+                Log.e(TAG, "encodeVideoFromBuffer: unable to find an appropriate codec for: " + MIME_TYPE);
+                return;
+            }
+            Log.i(TAG, "encodeVideoFromFileAsync: codec name: " + codecInfo.getName());
+
+            int colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
+            MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, video.width, video.height);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, video.bitrate);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, video.frameRate);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
+
+            List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
+
+            encoder = MediaCodec.createByCodecName(codecInfo.getName());
+            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            int videoTrack = muxer.addTrack(encoder.getOutputFormat());
+
+            encoder.setCallback(new MediaCodec.Callback() {
+                final int frameNum = frameList.size();
+                int frameIndex = 0;
+                int muxerIndex = 0;
+                @Override
+                public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
+                    if (frameIndex < frameNum) {
+                        Log.i(TAG, "onInputBufferAvailable: current frame index: " + frameIndex);
+                        ByteBuffer inputBuffer = codec.getInputBuffer(index);
+                        ByteBuffer frame = frameList.get(frameIndex);
+                        frame.rewind();
+                        inputBuffer.put(frame);
+                        codec.queueInputBuffer(index, 0, video.eachFrameSize, (long) (frameIndex * EACH_FRAME_TIME_SLOT), 0);
+                        frameIndex++;
+                    } else {
+                        Log.i(TAG, "onInputBufferAvailable: enqueue end-of-stream buffer, current frameIndex: " + frameIndex);
+                        codec.queueInputBuffer(index, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                    }
+                }
+
+                @Override
+                public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
+                    ByteBuffer outputBuffer = codec.getOutputBuffer(index);
+                    muxer.writeSampleData(videoTrack, outputBuffer, info);
+                    codec.releaseOutputBuffer(index, false);
+                    Log.i(TAG, "onOutputBufferAvailable: muxerIndex: " + (muxerIndex++));
+                }
+
+                @Override
+                public void onError(@NonNull MediaCodec codec, @NonNull MediaCodec.CodecException e) {
+
+                }
+
+                @Override
+                public void onOutputFormatChanged(@NonNull MediaCodec codec, @NonNull MediaFormat format) {
+
+                }
+            });
+            muxer.start();
+            encoder.start();
+
+            Thread.sleep(10*1000);
+
+            encoder.stop();
+            encoder.release();
+            muxer.stop();
+            muxer.release();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     public static void encodeVideoFromFileSync(String appPath) {
         RawVideoFile video = Netflix_DinnerScene_1080p_60fps_2s_h264;
@@ -124,10 +206,10 @@ public class MediaCodecOp {
             // Select codec
             MediaCodecInfo codecInfo = selectEncCodec(MIME_TYPE);
             if (codecInfo == null) {
-                Log.e(TAG, "encodeVideoFromBuffer: unable to find an appropriate codec for " + MIME_TYPE);
+                Log.e(TAG, "encodeVideoFromBuffer: unable to find an appropriate codec for: " + MIME_TYPE);
                 return;
             }
-            Log.i(TAG, "encodeVideoFromBuffer: codec name " + codecInfo.getName());
+            Log.i(TAG, "encodeVideoFromBuffer: codec name: " + codecInfo.getName());
 
             // Select colorFormat
             int colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
@@ -147,8 +229,8 @@ public class MediaCodecOp {
             // TODO: we should use InputSurface to pass raw video data? Now to question comes to:
             // how to pass raw video frame bytes to a Surface object?
             // Surface inputSurface = encoder.createInputSurface();  // This can only be called between configure and start method
-            encoder.start();
             muxer.start();
+            encoder.start();
 
             List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
             int frameNum = frameList.size();
