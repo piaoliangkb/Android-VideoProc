@@ -62,7 +62,7 @@ public class MediaCodecOp {
             30,
             1920,
             1080,
-            1498 * 1000 * 8
+            1498 * 1000
     );
 
     private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_1s_h264 = new RawVideoFile(
@@ -73,7 +73,7 @@ public class MediaCodecOp {
             60,
             1920,
             1080,
-            1498 * 1000 * 8
+            1498 * 1000
     );
 
     private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_2s_h264 = new RawVideoFile(
@@ -84,7 +84,7 @@ public class MediaCodecOp {
             120,
             1920,
             1080,
-            1498 * 1000 * 8
+            1498 * 1000
     );
 
     private static final RawVideoFile Netflix_DinnerScene_4K_60fps_1s_h264 = new RawVideoFile(
@@ -95,7 +95,7 @@ public class MediaCodecOp {
             60,
             4096,
             2160,
-            10027 * 1000 * 8
+            10027 * 1000
     );
 
     private static final RawVideoFile Netflix_DinnerScene_4K_30fps_1s_h264 = new RawVideoFile(
@@ -106,7 +106,7 @@ public class MediaCodecOp {
             30,
             4096,
             2160,
-            10027 * 1000 * 8
+            10027 * 1000
     );
 
 
@@ -185,6 +185,8 @@ public class MediaCodecOp {
             if (inputIndex >= 0) {
                 encoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
             }
+
+            Thread.sleep(1000*5);
 
             encoder.stop();
             encoder.release();
