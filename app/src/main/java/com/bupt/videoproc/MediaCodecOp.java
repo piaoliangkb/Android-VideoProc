@@ -54,6 +54,7 @@ class RawVideoFile {
 public class MediaCodecOp {
 
     private static final String TAG = "MediaCodecOp";
+    private static final int rawFileColorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
     private static final RawVideoFile Netflix_DinnerScene_1080p_30fps_1s_h264 = new RawVideoFile(
             "1s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
             "h264",
@@ -136,7 +137,7 @@ public class MediaCodecOp {
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
             format.setInteger(MediaFormat.KEY_BIT_RATE, video.bitrate);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, video.frameRate);
-            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);  // The default kayframe interval in FFmpeg is 2 seconds
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);  // The default KeyFrame interval in FFmpeg is 2 seconds
             Log.i(TAG, "encodeVideoFromBuffer: format: " + format);
 
             MediaCodec encoder = MediaCodec.createByCodecName(codecInfo.getName());
@@ -178,13 +179,14 @@ public class MediaCodecOp {
                     Log.i(TAG, "encodeVideoFromFileSync: dequeue output buffer index: " + outputIndex);
                 }
             }
-            end = System.currentTimeMillis();
-            Log.i(TAG, "encodeVideoFromFileSync: end-to-end encoding time for " + frameNum + " frames: " + (end - st));
-            // Enqueue end-of-stream flag
+            // Encode end-of-stream buffer
             int inputIndex = encoder.dequeueInputBuffer(-1);
-            if (inputIndex >= 0) {
+            if (index == frameNum) {
                 encoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
             }
+
+            end = System.currentTimeMillis();
+            Log.i(TAG, "encodeVideoFromFileSync: end-to-end encoding time for " + frameNum + " frames: " + (end - st));
 
             Thread.sleep(1000*5);
 
@@ -435,10 +437,9 @@ public class MediaCodecOp {
      * Returns the first codec capable of encoding the specified MIME type, or null if no
      * match was found.
      */
-    private static MediaCodecInfo selectEncCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
+    public static MediaCodecInfo selectEncCodec(String mimeType) {
+        MediaCodecInfo[] codecInfoList = new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos();
+        for (MediaCodecInfo codecInfo : codecInfoList) {
             if (!codecInfo.isEncoder()) {
                 continue;
             }
@@ -459,22 +460,13 @@ public class MediaCodecOp {
      */
     private static int selectColorFormat(MediaCodecInfo codecInfo, String mimeType) {
         MediaCodecInfo.CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(mimeType);
-        for (int i = 0; i < capabilities.colorFormats.length; i++) {
-            int colorFormat = capabilities.colorFormats[i];
-            if (isRecognizedFormat(colorFormat)) {
+        for (int colorFormat : capabilities.colorFormats) {
+            if (colorFormat == rawFileColorFormat) {  // We use YUV420P here
                 return colorFormat;
             }
         }
         Log.e(TAG, "selectColorFormat: couldn't find a good color format for " + codecInfo.getName() + " / " + mimeType);
         return 0;   // not reached
-    }
-
-    /**
-     * Returns true if this is a color format that this test code understands (i.e. we know how
-     * to read and generate frames in this format).
-     */
-    private static boolean isRecognizedFormat(int colorFormat) {
-        return colorFormat == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
     }
 
 }
