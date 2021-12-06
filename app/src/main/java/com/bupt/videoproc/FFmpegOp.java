@@ -13,10 +13,11 @@ public class FFmpegOp {
 
     public static void HardwareDecode(String localPath) {
         Log.i(TAG, "h264HardwareDecode: localPath is " + localPath);
-        FFmpegSession session = FFmpegKit.executeAsync("-loglevel verbose -benchmark -y -vsync 0 -an" +
-                " -hwaccel mediacodec" +
+        FFmpegSession session = FFmpegKit.executeAsync("-hide_banner -loglevel debug -benchmark -y -vsync 0 -an" +
+                // " -hwaccel mediacodec" +
                 " -c:v h264_mediacodec" +
                 " -i " + localPath + "/netflix_dinnerscene_1080p_60fps_h264.mp4" +
+                // " -i " + localPath + "/dunkrik_1080p_h264.mp4" +
                 " -f null -", session1 -> {
             SessionState state = session1.getState();
             ReturnCode returnCode = session1.getReturnCode();
