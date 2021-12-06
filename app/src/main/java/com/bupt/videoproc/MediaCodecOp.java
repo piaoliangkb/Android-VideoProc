@@ -234,23 +234,23 @@ public class MediaCodecOp {
 
             List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
             int frameNum = frameList.size();
-            int index = 0;  // Start from the first frame in frameList
+            int frameIndex = 0;  // Start from the first frame in frameList
             long st = System.currentTimeMillis(), end;
 
-            while (index < frameNum) {
-                ByteBuffer frame = frameList.get(index);
+            while (frameIndex < frameNum) {
+                ByteBuffer frame = frameList.get(frameIndex);
                 int inputIndex = encoder.dequeueInputBuffer(-1);
                 if (inputIndex >= 0) {
                     ByteBuffer byteBuffer = encoder.getInputBuffer(inputIndex);
                     // Fill byteBuffer with raw data read from file
                     frame.rewind();
                     byteBuffer.put(frame);
-                    encoder.queueInputBuffer(inputIndex, 0, video.eachFrameSize, (long) (index * EACH_FRAME_TIME_SLOT), 0);
-                    Log.i(TAG, "encodeVideoFromFileSync: input buffer index: " + inputIndex + ", frame: " + index);
-                    index++;  // Move to the next frame
+                    encoder.queueInputBuffer(inputIndex, 0, video.eachFrameSize, (long) (frameIndex * EACH_FRAME_TIME_SLOT), 0);
+                    Log.i(TAG, "encodeVideoFromFileSync: input buffer index: " + inputIndex + ", frame: " + frameIndex);
+                    frameIndex++;  // Move to the next frame
                 }
                 MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-                int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0);
+                int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 0);  // Set timeoutUs = 0 to avoid block
                 Log.i(TAG, "encodeVideoFromFileSync: bufferInfo: " + bufferInfo);
                 if (outputIndex >= 0) {
                     // Add outputBuffer to MediaMuxer
@@ -263,14 +263,26 @@ public class MediaCodecOp {
             }
             // Encode end-of-stream buffer
             int inputIndex = encoder.dequeueInputBuffer(-1);
-            if (index == frameNum) {
+            if (frameIndex == frameNum) {
                 encoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+            }
+
+            // Send unprocessed frames in output buffer to MediaMuxer
+            // TODO: These code below will cause 'Moov Atom Not Found' error -- not ended normally
+            MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+            int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, -1);  // Block infinite time
+            while (outputIndex >= 0) {
+                ByteBuffer outputBuffer = encoder.getOutputBuffer(outputIndex);
+                muxer.writeSampleData(videoTrack, outputBuffer, bufferInfo);
+                encoder.releaseOutputBuffer(outputIndex, false);
+                Log.i(TAG, "encodeVideoFromFileSync: dequeue output buffer index after finishing enqueue input buffer: " + outputIndex);
+                outputIndex = encoder.dequeueOutputBuffer(bufferInfo, -1);  // Block infinite time
             }
 
             end = System.currentTimeMillis();
             Log.i(TAG, "encodeVideoFromFileSync: end-to-end encoding time for " + frameNum + " frames: " + (end - st));
 
-            Thread.sleep(1000*5);
+            Thread.sleep(1000*10);
 
             encoder.stop();
             encoder.release();
