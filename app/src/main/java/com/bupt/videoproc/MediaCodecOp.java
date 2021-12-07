@@ -110,13 +110,20 @@ public class MediaCodecOp {
             10027 * 1000
     );
 
-    public static void encodeVideoFromFileAsync(String appPath) {
+    /**
+     * Encode video or record to files.
+     *
+     * @param appPath: application internal storage path.
+     * @param RECORD:  dump to file using MediaMuxer or not.
+     */
+    public static void encodeVideoFromFileAsync(String appPath, boolean RECORD) {
         RawVideoFile video = Netflix_DinnerScene_1080p_60fps_2s_h264;
         Log.i(TAG, "encodeVideoFromFileAsync: encoding file asynchronously: " + video.filename);
         String MIME_TYPE = video.type;
         double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
         MediaCodec encoder;
-        MediaMuxer muxer;
+        MediaMuxer muxer = null;
+        int videoTrack;
         try {
             muxer = new MediaMuxer(appPath + "/test-video.mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
             MediaCodecInfo codecInfo = selectEncCodec(MIME_TYPE);
@@ -137,12 +144,13 @@ public class MediaCodecOp {
 
             encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-            int videoTrack = muxer.addTrack(encoder.getOutputFormat());
+            videoTrack = muxer.addTrack(encoder.getOutputFormat());
 
             encoder.setCallback(new MediaCodec.Callback() {
                 final int frameNum = frameList.size();
                 int frameIndex = 0;
                 int muxerIndex = 0;
+
                 @Override
                 public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
                     if (frameIndex < frameNum) {
@@ -180,7 +188,7 @@ public class MediaCodecOp {
             muxer.start();
             encoder.start();
 
-            Thread.sleep(10*1000);
+            Thread.sleep(10 * 1000);
 
             encoder.stop();
             encoder.release();
@@ -282,7 +290,7 @@ public class MediaCodecOp {
             end = System.currentTimeMillis();
             Log.i(TAG, "encodeVideoFromFileSync: end-to-end encoding time for " + frameNum + " frames: " + (end - st));
 
-            Thread.sleep(1000*10);
+            Thread.sleep(1000 * 10);
 
             encoder.stop();
             encoder.release();
