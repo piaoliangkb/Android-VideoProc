@@ -122,10 +122,9 @@ public class MediaCodecOp {
         String MIME_TYPE = video.type;
         double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
         MediaCodec encoder;
-        MediaMuxer muxer = null;
         int videoTrack;
         try {
-            muxer = new MediaMuxer(appPath + "/test-video.mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            final MediaMuxer muxer = new MediaMuxer(appPath + "/test-video.mp4", MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
             MediaCodecInfo codecInfo = selectEncCodec(MIME_TYPE);
             if (codecInfo == null) {
                 Log.e(TAG, "encodeVideoFromBuffer: unable to find an appropriate codec for: " + MIME_TYPE);
