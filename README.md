@@ -1,6 +1,10 @@
 # Android MediaCodec Tutorial
 
-Reference Link: https://developer.android.com/reference/android/media/MediaCodec
+Reference Link:
+
+- https://developer.android.com/reference/android/media/MediaCodec
+
+- https://stuff.mit.edu/afs/sipb/project/android/docs/reference/android/media/MediaExtractor.html
 
 ## Supported data types
 
