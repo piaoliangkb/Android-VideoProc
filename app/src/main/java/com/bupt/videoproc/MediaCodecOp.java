@@ -50,6 +50,29 @@ class RawVideoFile {
     }
 }
 
+class FrameInfo {
+    FrameInfo(int frameNum, ByteBuffer buffer, long frameSize, int frameFlag, long framePts) {
+        this.frameNum = frameNum;
+        this.frameBuffer = buffer;
+        this.frameSize = frameSize;
+        this.frameFlag = frameFlag;
+        this.framePts = framePts;
+    }
+
+    public void printFrameInfo() {
+        Log.d("FrameInfo", "printFrameInfo:" +
+                " frameNum=" + frameNum +
+                " frameSize=" + frameSize +
+                " frameFlag=" + frameFlag +
+                " framePts=" + framePts);
+    }
+
+    int frameNum;  // # of this frame in a video
+    ByteBuffer frameBuffer;
+    long frameSize;
+    int frameFlag;
+    long framePts;
+}
 
 public class MediaCodecOp {
 
@@ -456,16 +479,21 @@ public class MediaCodecOp {
 
                 @Override
                 public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
+                    Log.i(TAG, "onInputBufferAvailable: input buffer index: " + index);
                     // Fill input buffer with index with frame extracted from extractor
                     ByteBuffer inputBuffer = codec.getInputBuffer(index);
+                    Log.i(TAG, "onInputBufferAvailable: input buffer capacity: " + inputBuffer.capacity());
+                    long st = System.currentTimeMillis();
                     int size = extractor.readSampleData(inputBuffer, 0);
+                    long end = System.currentTimeMillis();
+                    Log.i(TAG, "onInputBufferAvailable: read sample data duration = " + (end - st));
                     long time = extractor.getSampleTime();
                     if (size > 0 && time >= 0) {
                         if (time == 0) {
                             st = System.currentTimeMillis();
                         }
                         codec.queueInputBuffer(index, 0, size, time, extractor.getSampleFlags());
-                        Log.i(TAG, "onInputBufferAvailable: enqueue " + frameNum + " frame with size: " + size + ", time: " + time);
+                        Log.i(TAG, "onInputBufferAvailable: enqueue " + frameNum + " frame with size: " + size + ", time: " + time + ", flag: " + extractor.getSampleFlags());
                         extractor.advance();
                         frameNum++;
                     } else {
@@ -508,6 +536,35 @@ public class MediaCodecOp {
         }
     }
 
+    public static List<FrameInfo> loadVideoData(String videoPath) {
+        List<FrameInfo> ret = new ArrayList<>();  // accessing element in an array list: O(1)
+        MediaExtractor extractor = getMediaExtractor(videoPath);
+        int frameNum = 0;
+        long st = System.currentTimeMillis();
+        long sampleSize;
+        sampleSize = extractor.getSampleSize();
+        ByteBuffer inputBuffer = ByteBuffer.allocate((int) sampleSize);
+        extractor.readSampleData(inputBuffer, 0);
+
+        FrameInfo firstFrame = new FrameInfo(frameNum, inputBuffer, sampleSize, extractor.getSampleFlags(), extractor.getSampleTime());
+        ret.add(firstFrame);
+        firstFrame.printFrameInfo();
+
+        while (extractor.advance()) {
+            frameNum++;
+            sampleSize = extractor.getSampleSize();
+            ByteBuffer buffer = ByteBuffer.allocate((int) sampleSize);
+            extractor.readSampleData(buffer, 0);
+            FrameInfo frame = new FrameInfo(frameNum, buffer, sampleSize, extractor.getSampleFlags(), extractor.getSampleTime());
+            ret.add(frame);
+            frame.printFrameInfo();
+        }
+        long end = System.currentTimeMillis();
+        Log.d(TAG, "loadVideoData: Finish processing in " + (end - st) + " ms, " +
+                "loading " + ret.size() + " frames");
+        return ret;
+    }
+
     /**
      * Get a MediaExtractor object to track video track.
      *
@@ -532,7 +589,6 @@ public class MediaCodecOp {
         }
         return extractor;
     }
-
 
     /**
      * Returns the first codec capable of encoding the specified MIME type, or null if no

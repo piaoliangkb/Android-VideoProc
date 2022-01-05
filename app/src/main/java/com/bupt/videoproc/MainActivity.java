@@ -137,6 +137,7 @@ public class MainActivity extends AppCompatActivity {
                 service.submit(new Runnable() {
                     @Override
                     public void run() {
+                        MediaCodecOp.loadVideoData(getFilesDir().getAbsolutePath() + "/netflix_dinnerscene_4k_60fps_h264.mp4");
                     }
                 });
             }
