@@ -478,7 +478,8 @@ public class MediaCodecOp {
      * @param appPath: application internal storage path.
      */
     public static void decodeVideoFromFileAsync(String appPath) {
-        String videoPath = appPath + "/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
+        String videoPath = appPath + "/" + "netflix_dinnerscene_4k_60fps_h264.mp4";
+        int totalFrameNum = 1199;
         MediaExtractor extractor = getMediaExtractor(videoPath);
 
         MediaFormat format = extractor.getTrackFormat(0);
@@ -486,7 +487,7 @@ public class MediaCodecOp {
         try {
             MediaCodec decoder = MediaCodec.createByCodecName(decoderName);
             decoder.setCallback(new MediaCodec.Callback() {
-                int frameNum = 0;
+                int frameNum = 0, finishedFrameNum = 0;
                 long st, end;
 
                 @Override
@@ -495,10 +496,7 @@ public class MediaCodecOp {
                     // Fill input buffer with index with frame extracted from extractor
                     ByteBuffer inputBuffer = codec.getInputBuffer(index);
                     Log.i(TAG, "onInputBufferAvailable: input buffer capacity: " + inputBuffer.capacity());
-                    long st = System.currentTimeMillis();
                     int size = extractor.readSampleData(inputBuffer, 0);
-                    long end = System.currentTimeMillis();
-                    Log.i(TAG, "onInputBufferAvailable: read sample data duration = " + (end - st));
                     long time = extractor.getSampleTime();
                     if (size > 0 && time >= 0) {
                         if (time == 0) {
@@ -509,14 +507,17 @@ public class MediaCodecOp {
                         extractor.advance();
                         frameNum++;
                     } else {
-                        end = System.currentTimeMillis();
                         codec.queueInputBuffer(index, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                        Log.i(TAG, "onInputBufferAvailable: total frames: " + frameNum + ", end-to-end time: " + (end - st) + " ms");
                     }
                 }
 
                 @Override
                 public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
+                    finishedFrameNum++;
+                    if (finishedFrameNum == totalFrameNum) {
+                        end = System.currentTimeMillis();
+                        Log.i(TAG, "onOutputBufferAvailable: end-to-end time in asynchronous mode: " + (end-st) + " ms");
+                    }
                     codec.releaseOutputBuffer(index, false);
                 }
 
@@ -547,6 +548,78 @@ public class MediaCodecOp {
             e.printStackTrace();
         }
     }
+
+    // Pre-load all frames into a List of FrameInfo object
+    public static void decodeVideoFromFileAsyncOptimize(String appPath) {
+        String videoPath = appPath + "/" + "netflix_dinnerscene_4k_60fps_h264.mp4";
+        int totalFrames = 1199;
+
+        MediaExtractor extractor = getMediaExtractor(videoPath);
+        MediaFormat format = extractor.getTrackFormat(0);
+        String decoderName = new MediaCodecList(MediaCodecList.ALL_CODECS).findDecoderForFormat(format);
+
+        try {
+            MediaCodec decoder = MediaCodec.createByCodecName(decoderName);
+            decoder.setCallback(new MediaCodec.Callback() {
+                int frameNum = 0, finishedFrameNum = 0;
+                final List<FrameInfo> frames = loadVideoData(videoPath);
+                long st, end;
+
+                @Override
+                public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
+                    ByteBuffer inputBuffer = codec.getInputBuffer(index);
+
+                    if (frameNum < totalFrames) {
+                        if (frameNum == 0) {
+                            st = System.currentTimeMillis();
+                        }
+                        FrameInfo frame = frames.get(frameNum);
+                        inputBuffer.put(frame.frameBuffer);
+                        codec.queueInputBuffer(index, 0, (int) frame.frameSize, frame.framePts, frame.frameFlag);
+                        Log.i(TAG, "onInputBufferAvailable: The " + frameNum + " is processing");
+                        frameNum++;
+                    } else {
+                        codec.queueInputBuffer(index, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                        Log.i(TAG, "onInputBufferAvailable: enqueue end-of-stream buffer");
+                    }
+                }
+
+                @Override
+                public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
+                    finishedFrameNum++;
+                    if (finishedFrameNum == totalFrames) {
+                        end = System.currentTimeMillis();
+                        Log.i(TAG, "onOutputBufferAvailable: end-to-end time in asynchronous mode: " + (end-st));
+                    }
+                    codec.releaseOutputBuffer(index, false);
+                }
+
+                @Override
+                public void onError(@NonNull MediaCodec codec, @NonNull MediaCodec.CodecException e) {
+                    Log.i(TAG, "onError: decoder error");
+                }
+
+                @Override
+                public void onOutputFormatChanged(@NonNull MediaCodec codec, @NonNull MediaFormat format) {
+                    Log.i(TAG, "onOutputFormatChanged: no processing");
+                }
+            });
+
+            decoder.configure(format, null, null, 0);
+            decoder.start();
+
+            // Wait for processing to complete
+            // How to wait for processing finish
+            Thread.sleep(10000);
+
+            decoder.stop();
+            decoder.release();
+            extractor.release();
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
 
     /**
      * Loading all frame info to memory before processing.
