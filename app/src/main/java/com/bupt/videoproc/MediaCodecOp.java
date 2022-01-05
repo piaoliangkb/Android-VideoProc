@@ -396,47 +396,41 @@ public class MediaCodecOp {
      * @param appPath: application internal storage path.
      */
     public static void decodeVideoFromFileSync(String appPath) {
-        // Test MediaExtractor from current file
-        String videoPath = appPath + "/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
-        MediaExtractor extractor = getMediaExtractor(videoPath);
+        String videoPath = appPath + "/" + "netflix_dinnerscene_4k_60fps_h264.mp4";
+        int totalFrames = 1199;
+        List<FrameInfo> frames = loadVideoData(videoPath);
 
+        MediaExtractor extractor = getMediaExtractor(videoPath);
         // Create codec by MIME string (We use the video MIME, in case of H.264 video, the string is video/avc)
         MediaFormat format = extractor.getTrackFormat(0);
+
         String decoderName = new MediaCodecList(MediaCodecList.ALL_CODECS).findDecoderForFormat(format);
-        Log.i(TAG, "testMediaExtractor: the decoder name is" + decoderName);
+        Log.i(TAG, "testMediaExtractor: decoder name: " + decoderName);
         try {
             MediaCodec decoder = MediaCodec.createByCodecName(decoderName);
-            Log.i(TAG, "testMediaExtractor: " + decoder.getName() + ", " + decoder.getCodecInfo());
-
-            // Configure decoder using MediaFormat object extracted from file
             decoder.configure(format, null, null, 0);
+            decoder.start();
 
-            decoder.start();  // Start decoder
-
-            int frameNum = 0;
+            int frameNum = 0, finishedFrameNum = 0;
             long st = 0, end = 0;
             while (true) {
-                int inputIndex = decoder.dequeueInputBuffer(-1);  // Get the index of available input buffer
-                Log.i(TAG, "testMediaExtractor: inputIndex: " + inputIndex);
+                int inputIndex = decoder.dequeueInputBuffer(-1);
 
                 if (inputIndex >= 0) {
-                    ByteBuffer byteBuffer = decoder.getInputBuffer(inputIndex);  // Get byteBuffer by the index of input buffer
-                    int size = extractor.readSampleData(byteBuffer, 0);  // Get the size of a sample frame
-                    long time = extractor.getSampleTime();  // Get the presentation time of a sample frame
-                    Log.i(TAG, "testMediaExtractor: sampleSize: " + size + ", time: " + time);
-
-                    if (time == 0) {
+                    if (frameNum == 0) {
                         st = System.currentTimeMillis();
                     }
-                    if (size > 0 && time >= 0) {
-                        frameNum++;
+                    ByteBuffer byteBuffer = decoder.getInputBuffer(inputIndex);
+
+                    if (frameNum < totalFrames) {
+                        FrameInfo frame = frames.get(frameNum);
+                        byteBuffer.put(frame.frameBuffer);
+                        // byteBuffer.flip();
                         Log.i(TAG, "testMediaExtractor: The " + frameNum + " frame is processing");
-                        decoder.queueInputBuffer(inputIndex, 0, size, time, extractor.getSampleFlags());  // Enqueue a frame saved in inputBuffer at inputIndex
-                        extractor.advance();  // Advance to the next sample
+
+                        decoder.queueInputBuffer(inputIndex, 0, (int) frame.frameSize, frame.framePts, frame.frameFlag);
+                        frameNum++;
                     } else {
-                        end = System.currentTimeMillis();
-                        // If size <= 0 or time < 0, means that the video is done break execution
-                        Log.i(TAG, "testMediaExtractor: decoding finished, exit");
                         decoder.queueInputBuffer(inputIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                         break;
                     }
@@ -444,16 +438,34 @@ public class MediaCodecOp {
 
                 MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
                 int outIndex = decoder.dequeueOutputBuffer(bufferInfo, 0);
-                Log.d(TAG, "outIndex: " + outIndex);
                 if (outIndex >= 0) {
+                    finishedFrameNum++;
+                    Log.d(TAG, "decodeVideoFromFileSync: finished frame number: " + finishedFrameNum);
+                    if (finishedFrameNum == totalFrames) {
+                        end = System.currentTimeMillis();
+                    }
                     decoder.releaseOutputBuffer(outIndex, false);  // Must release output buffer, else the process of encoding will be paused
+                }
+            }
+            // Release unfinished frames in codec
+            MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+            while (finishedFrameNum < totalFrames) {
+                int outIndex = decoder.dequeueOutputBuffer(bufferInfo, -1);
+                if (outIndex >= 0) {
+                    finishedFrameNum++;
+                    Log.d(TAG, "decodeVideoFromFileSync: finished frame number: " + finishedFrameNum);
+                    if (finishedFrameNum == totalFrames) {
+                        end = System.currentTimeMillis();
+                    }
+                    decoder.releaseOutputBuffer(outIndex, false);
                 }
             }
 
             decoder.stop();
             decoder.release();
             extractor.release();
-            Log.i(TAG, "testMediaExtractor: end-to-end time in synchronize mode: " + (end - st));  // Pipeline releasing of a output buffer costs at most 1 ms
+            Log.i(TAG, "decodeVideoFromFileSync: input frames: " + frameNum + ", output frames: " + finishedFrameNum);
+            Log.i(TAG, "testMediaExtractor: end-to-end decoding time in synchronize mode: " + (end - st));  // Pipeline releasing of a output buffer costs at most 1 ms
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -536,6 +548,12 @@ public class MediaCodecOp {
         }
     }
 
+    /**
+     * Loading all frame info to memory before processing.
+     *
+     * @param videoPath video absolute path.
+     * @return a list of FrameInfo object.
+     */
     public static List<FrameInfo> loadVideoData(String videoPath) {
         List<FrameInfo> ret = new ArrayList<>();  // accessing element in an array list: O(1)
         MediaExtractor extractor = getMediaExtractor(videoPath);
