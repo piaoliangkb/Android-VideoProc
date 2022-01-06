@@ -78,6 +78,17 @@ public class MediaCodecOp {
 
     private static final String TAG = "MediaCodecOp";
     private static final int rawFileColorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
+    private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_h264 = new RawVideoFile(
+            "Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
+            "h264",
+            3110400,
+            60,
+            60,
+            1920,
+            1080,
+            1498 * 1000
+    );
+
     private static final RawVideoFile Netflix_DinnerScene_1080p_30fps_1s_h264 = new RawVideoFile(
             "1s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
             "h264",
@@ -139,7 +150,7 @@ public class MediaCodecOp {
      * @param appPath: application internal storage path.
      * @param RECORD:  dump to file using MediaMuxer or not.
      */
-    public static void encodeVideoFromFileAsync(String appPath, boolean RECORD) {
+    public static void encodeVideoFromFileAsyncWithMuxer(String appPath, boolean RECORD) {
         RawVideoFile video = Netflix_DinnerScene_1080p_60fps_2s_h264;
         Log.i(TAG, "encodeVideoFromFileAsync: encoding file asynchronously: " + video.filename);
         String MIME_TYPE = video.type;
@@ -221,6 +232,85 @@ public class MediaCodecOp {
             e.printStackTrace();
         }
     }
+
+    public static void encodeVideoFromFileAsync(String appPath) {
+        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_h264;
+        Log.i(TAG, "encodeVideoFromFileAsync: encoding file asynchronously: " + video.filename);
+        String MIME_TYPE = video.type;
+        double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
+        MediaCodec encoder;
+        try {
+            MediaCodecInfo codecInfo = selectEncCodec(MIME_TYPE);
+            if (codecInfo == null) {
+                Log.e(TAG, "encodeVideoFromBuffer: unable to find an appropriate codec for: " + MIME_TYPE);
+                return;
+            }
+            Log.i(TAG, "encodeVideoFromFileAsync: codec name: " + codecInfo.getName());
+
+            int colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
+            MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, video.width, video.height);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, video.bitrate);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, video.frameRate);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
+
+            appPath = "/data/local/tmp";
+            List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
+            Log.i(TAG, "encodeVideoFromFileAsync: size: " + frameList.size());
+
+            encoder = MediaCodec.createByCodecName(codecInfo.getName());
+            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+
+            encoder.setCallback(new MediaCodec.Callback() {
+                final int frameNum = frameList.size();
+                int frameIndex = 0;
+                int muxerIndex = 0;
+
+                @Override
+                public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
+                    if (frameIndex < frameNum) {
+                        Log.i(TAG, "onInputBufferAvailable: current frame index: " + frameIndex);
+                        ByteBuffer inputBuffer = codec.getInputBuffer(index);
+                        ByteBuffer frame = frameList.get(frameIndex);
+                        frame.rewind();
+                        inputBuffer.put(frame);
+                        codec.queueInputBuffer(index, 0, video.eachFrameSize, (long) (frameIndex * EACH_FRAME_TIME_SLOT), 0);
+                        frameIndex++;
+                    } else {
+                        Log.i(TAG, "onInputBufferAvailable: enqueue end-of-stream buffer, current frameIndex: " + frameIndex);
+                        codec.queueInputBuffer(index, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                    }
+                }
+
+                @Override
+                public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
+                    ByteBuffer outputBuffer = codec.getOutputBuffer(index);
+                    codec.releaseOutputBuffer(index, false);
+                    Log.i(TAG, "onOutputBufferAvailable: muxerIndex: " + (muxerIndex++));
+                }
+
+                @Override
+                public void onError(@NonNull MediaCodec codec, @NonNull MediaCodec.CodecException e) {
+
+                }
+
+                @Override
+                public void onOutputFormatChanged(@NonNull MediaCodec codec, @NonNull MediaFormat format) {
+
+                }
+            });
+            encoder.start();
+
+            Thread.sleep(10 * 1000);
+
+            encoder.stop();
+            encoder.release();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
 
     public static void encodeVideoFromFileSync(String appPath) {

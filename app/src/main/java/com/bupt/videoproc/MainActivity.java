@@ -107,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         // MediaCodecOp.encodeVideoFromFileSync(getFilesDir().getAbsolutePath());
-                        MediaCodecOp.encodeVideoFromFileAsync(getFilesDir().getAbsolutePath(), true);
+                        MediaCodecOp.encodeVideoFromFileAsync(getFilesDir().getAbsolutePath());
                     }
                 });
             }
