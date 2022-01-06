@@ -40,8 +40,8 @@ public class FFmpegOp {
     }
 
     public static void SoftwareDecode(String appPath) {
-        String videoPath = appPath + "/netflix_dinnerscene_1080p_60fps_h264.mp4";
-        FFmpegSession session = FFmpegKit.execute("-y -c:v h264" +
+        String videoPath = "/data/local/tmp/" + "netflix_dinnerscene_4k_60fps_h264.mp4";
+        FFmpegSession session = FFmpegKit.execute("-loglevel verbose -benchmark -y -c:v h264" +
                 " -i " + videoPath +
                 " -f null - ");
         if (ReturnCode.isSuccess(session.getReturnCode())) {
@@ -59,10 +59,10 @@ public class FFmpegOp {
     }
 
     public static void SoftwareEncode(String appPath) {
-        String rawFilePath = appPath + "/Netflix_DinnerScene_4K_60fps_yuv420p.yuv";
+        String rawFilePath = "/data/local/tmp/Netflix_DinnerScene_1080p_60fps_yuv420p.yuv";
         FFmpegSession session = FFmpegKit.execute("-loglevel verbose -benchmark -y -vsync 0" +
                 " -f rawvideo " +
-                "-pix_fmt yuv420p -s:v 4096x2160 -r 60" +
+                "-pix_fmt yuv420p -s:v 1920x1080 -r 60" +
                 " -i " + rawFilePath +
                 " -c:v h264" +
                 " -f null -");

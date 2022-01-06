@@ -124,7 +124,8 @@ public class MainActivity extends AppCompatActivity {
                 service.submit(new Runnable() {
                     @Override
                     public void run() {
-                        MediaCodecOp.decodeVideoFromFileAsync(getFilesDir().getAbsolutePath());
+                        MediaCodecOp.decodeVideoFromFileAsyncOptimize(getFilesDir().getAbsolutePath());
+                        // MediaCodecOp.decodeVideoFromFileSync(getFilesDir().getAbsolutePath());
                     }
                 });
             }

@@ -478,7 +478,7 @@ public class MediaCodecOp {
      * @param appPath: application internal storage path.
      */
     public static void decodeVideoFromFileAsync(String appPath) {
-        String videoPath = appPath + "/" + "netflix_dinnerscene_4k_60fps_h264.mp4";
+        String videoPath = "/data/local/tmp/" + "netflix_dinnerscene_4k_60fps_h264.mp4";
         int totalFrameNum = 1199;
         MediaExtractor extractor = getMediaExtractor(videoPath);
 
@@ -551,7 +551,7 @@ public class MediaCodecOp {
 
     // Pre-load all frames into a List of FrameInfo object
     public static void decodeVideoFromFileAsyncOptimize(String appPath) {
-        String videoPath = appPath + "/" + "netflix_dinnerscene_4k_60fps_h264.mp4";
+        String videoPath = "/data/local/tmp/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
         int totalFrames = 1199;
 
         MediaExtractor extractor = getMediaExtractor(videoPath);
