@@ -144,6 +144,17 @@ public class MediaCodecOp {
             10027 * 1000
     );
 
+    private static final RawVideoFile Netflix_DinnerScene_4K_60fps_h264 = new RawVideoFile(
+            "Netflix_DinnerScene_4K_60fps_yuv420p.yuv",
+            "h264",
+            13271040,
+            30,
+            1199,
+            4096,
+            2160,
+            10027 * 1000
+    );
+
     /**
      * Encode video or record to files.
      *
@@ -173,7 +184,7 @@ public class MediaCodecOp {
             format.setInteger(MediaFormat.KEY_FRAME_RATE, video.frameRate);
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
 
-            List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
+            List<ByteBuffer> frameList = procRawVideoFile(appPath, video, -1);
 
             encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
@@ -234,7 +245,8 @@ public class MediaCodecOp {
     }
 
     public static void encodeVideoFromFileAsync(String appPath) {
-        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_h264;
+        // RawVideoFile video = Netflix_DinnerScene_1080p_60fps_h264;
+        RawVideoFile video = Netflix_DinnerScene_4K_60fps_h264;
         Log.i(TAG, "encodeVideoFromFileAsync: encoding file asynchronously: " + video.filename);
         String MIME_TYPE = video.type;
         double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
@@ -245,7 +257,6 @@ public class MediaCodecOp {
                 Log.e(TAG, "encodeVideoFromBuffer: unable to find an appropriate codec for: " + MIME_TYPE);
                 return;
             }
-            Log.i(TAG, "encodeVideoFromFileAsync: codec name: " + codecInfo.getName());
 
             int colorFormat = selectColorFormat(codecInfo, MIME_TYPE);
             MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, video.width, video.height);
@@ -255,20 +266,23 @@ public class MediaCodecOp {
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
 
             appPath = "/data/local/tmp";
-            List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
-            Log.i(TAG, "encodeVideoFromFileAsync: size: " + frameList.size());
+            List<ByteBuffer> frameList = procRawVideoFile(appPath, video, 40);
 
             encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
 
             encoder.setCallback(new MediaCodec.Callback() {
-                final int frameNum = frameList.size();
+                final int totalFrameNum = frameList.size();
+                int finishedFrameNum = 0;
                 int frameIndex = 0;
-                int muxerIndex = 0;
+                long st = 0, end = 0;
 
                 @Override
                 public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
-                    if (frameIndex < frameNum) {
+                    if (frameIndex == 0) {
+                        st = System.currentTimeMillis();
+                    }
+                    if (frameIndex < totalFrameNum) {
                         Log.i(TAG, "onInputBufferAvailable: current frame index: " + frameIndex);
                         ByteBuffer inputBuffer = codec.getInputBuffer(index);
                         ByteBuffer frame = frameList.get(frameIndex);
@@ -277,16 +291,18 @@ public class MediaCodecOp {
                         codec.queueInputBuffer(index, 0, video.eachFrameSize, (long) (frameIndex * EACH_FRAME_TIME_SLOT), 0);
                         frameIndex++;
                     } else {
-                        Log.i(TAG, "onInputBufferAvailable: enqueue end-of-stream buffer, current frameIndex: " + frameIndex);
                         codec.queueInputBuffer(index, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     }
                 }
 
                 @Override
                 public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
-                    ByteBuffer outputBuffer = codec.getOutputBuffer(index);
+                    finishedFrameNum++;
+                    if (finishedFrameNum == totalFrameNum) {
+                        end = System.currentTimeMillis();
+                        Log.i(TAG, "onOutputBufferAvailable: finish encoding in " + (end-st) + " ms");
+                    }
                     codec.releaseOutputBuffer(index, false);
-                    Log.i(TAG, "onOutputBufferAvailable: muxerIndex: " + (muxerIndex++));
                 }
 
                 @Override
@@ -352,7 +368,7 @@ public class MediaCodecOp {
             muxer.start();
             encoder.start();
 
-            List<ByteBuffer> frameList = procRawVideoFile(appPath, video);
+            List<ByteBuffer> frameList = procRawVideoFile(appPath, video, -1);
             int frameNum = frameList.size();
             int frameIndex = 0;  // Start from the first frame in frameList
             long st = System.currentTimeMillis(), end;
@@ -448,8 +464,10 @@ public class MediaCodecOp {
      * object of each frame.
      *
      * @param appPath: application internal storage path.
+     * @param rawVideoFile: RawVideoFile object contains the encoding info (path, bitrate, etc).
+     * @param frameNum: total extracting frame number from raw video file, if -1, extract all frames.
      */
-    public static List<ByteBuffer> procRawVideoFile(String appPath, RawVideoFile rawVideoFile) {
+    public static List<ByteBuffer> procRawVideoFile(String appPath, RawVideoFile rawVideoFile, int frameNum) {
         String rawPath = appPath + "/" + rawVideoFile.filename;
         int frameSize = rawVideoFile.eachFrameSize;
 
@@ -460,10 +478,12 @@ public class MediaCodecOp {
         try {
             FileInputStream is = new FileInputStream(rawPath);
             int i = 0;
-            // int totalFrame = 0;
+            int totalFrame = 0;
             while (i != -1) {
-                // totalFrame++;
-                // Log.i(TAG, "procRawVideoFile: frame: " + totalFrame);
+                if (frameNum >= 0 && totalFrame >= frameNum) {
+                    break;
+                }
+                totalFrame++;
                 byte[] buf = new byte[frameSize];
                 i = is.read(buf);
                 if (i != -1) {
