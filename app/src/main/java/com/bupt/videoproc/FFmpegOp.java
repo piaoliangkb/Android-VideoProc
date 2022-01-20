@@ -12,18 +12,10 @@ public class FFmpegOp {
     private static final String TAG = "VideoOperation";
 
     public static void HardwareDecode(String localPath) {
-        Log.i(TAG, "h264HardwareDecode: localPath is " + localPath);
-        FFmpegSession session = FFmpegKit.executeAsync("-hide_banner -loglevel debug -benchmark -y -vsync 0 -an" +
-                // " -hwaccel mediacodec" +
+        FFmpegSession session = FFmpegKit.execute("-hide_banner -loglevel debug -benchmark -y -vsync 0 -an" +
                 " -c:v h264_mediacodec" +
-                " -i " + localPath + "/netflix_dinnerscene_1080p_60fps_h264.mp4" +
-                // " -i " + localPath + "/dunkrik_1080p_h264.mp4" +
-                " -f null -", session1 -> {
-            SessionState state = session1.getState();
-            ReturnCode returnCode = session1.getReturnCode();
-            Log.d(TAG, String.format("FFmpeg process exited with state %s and rc %s.%s", state, returnCode, session1.getFailStackTrace()));
-            Log.i(TAG, "apply: Duration = " + session1.getDuration());
-        });
+                " -i " + "/data/local/tmp/netflix_dinnerscene_1080p_60fps_h264.mp4" +
+                " -f null -");
 
         if (ReturnCode.isSuccess(session.getReturnCode())) {
             Log.i(TAG, "ffmpegOperation: session success =====================");
@@ -40,10 +32,11 @@ public class FFmpegOp {
     }
 
     public static void SoftwareDecode(String appPath) {
-        String videoPath = "/data/local/tmp/" + "netflix_dinnerscene_4k_60fps_h264.mp4";
-        FFmpegSession session = FFmpegKit.execute("-loglevel verbose -benchmark -y -c:v h264" +
+        String videoPath = "/data/local/tmp/" + "netflix_dinnerscene_1080p_60fps_h264.mp4";
+        FFmpegSession session = FFmpegKit.execute("-hide_banner -loglevel verbose -benchmark" +
+                " -c:v h264" +
                 " -i " + videoPath +
-                " -f null - ");
+                " -f null -");
         if (ReturnCode.isSuccess(session.getReturnCode())) {
             Log.i(TAG, "ffmpegOperation: session success =====================");
             Log.i(TAG, "ffmpegOperation: " + session.getOutput());
@@ -60,11 +53,11 @@ public class FFmpegOp {
 
     public static void SoftwareEncode(String appPath) {
         String rawFilePath = "/data/local/tmp/Netflix_DinnerScene_1080p_60fps_yuv420p.yuv";
-        FFmpegSession session = FFmpegKit.execute("-loglevel verbose -benchmark -y -vsync 0" +
+        FFmpegSession session = FFmpegKit.execute("-hide_banner -loglevel verbose -benchmark -vsync 0" +
                 " -f rawvideo " +
                 "-pix_fmt yuv420p -s:v 1920x1080 -r 60" +
                 " -i " + rawFilePath +
-                " -c:v h264" +
+                " -c:v h264 -b:v 1492k" +
                 " -f null -");
         if (ReturnCode.isSuccess(session.getReturnCode())) {
             Log.i(TAG, "ffmpegOperation: session success =====================");
@@ -94,6 +87,11 @@ public class FFmpegOp {
             Log.d(TAG, String.format("Command failed with state %s and rc %s.%s",
                     session.getState(), session.getReturnCode(), session.getFailStackTrace()));
         }
+    }
+
+    // TODO
+    public static String constructFFmpegCommand() {
+        return "";
     }
 
 }

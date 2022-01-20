@@ -22,57 +22,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-class RawVideoFile {
-    public String filename;
-    public String type;
-    public int eachFrameSize;
-    public int frameRate;
-    public int totalFrameNum;
-    public int width;
-    public int height;
-    public int bitrate;
-
-    public RawVideoFile(String filename, String type, int eachFrameSize, int frameRate, int totalFrameNum, int width, int height, int bitrate) {
-        this.filename = filename;
-        if ("h264".equals(type)) {
-            this.type = "video/avc";
-        } else if ("hevc".equals(type)) {
-            this.type = "video/hevc";
-        } else {
-            this.type = "unknown";
-        }
-        this.eachFrameSize = eachFrameSize;
-        this.frameRate = frameRate;
-        this.totalFrameNum = totalFrameNum;
-        this.width = width;
-        this.height = height;
-        this.bitrate = bitrate;  // bits/sec
-    }
-}
-
-class FrameInfo {
-    FrameInfo(int frameNum, ByteBuffer buffer, long frameSize, int frameFlag, long framePts) {
-        this.frameNum = frameNum;
-        this.frameBuffer = buffer;
-        this.frameSize = frameSize;
-        this.frameFlag = frameFlag;
-        this.framePts = framePts;
-    }
-
-    public void printFrameInfo() {
-        Log.d("FrameInfo", "printFrameInfo:" +
-                " frameNum=" + frameNum +
-                " frameSize=" + frameSize +
-                " frameFlag=" + frameFlag +
-                " framePts=" + framePts);
-    }
-
-    int frameNum;  // # of this frame in a video
-    ByteBuffer frameBuffer;
-    long frameSize;
-    int frameFlag;
-    long framePts;
-}
 
 public class MediaCodecOp {
 
@@ -83,66 +32,12 @@ public class MediaCodecOp {
             "h264",
             3110400,
             60,
-            60,
+            1199,
             1920,
             1080,
-            1498 * 1000
+            1492 * 1000
     );
 
-    private static final RawVideoFile Netflix_DinnerScene_1080p_30fps_1s_h264 = new RawVideoFile(
-            "1s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
-            "h264",
-            3110400,
-            30,
-            30,
-            1920,
-            1080,
-            1498 * 1000
-    );
-
-    private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_1s_h264 = new RawVideoFile(
-            "1s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
-            "h264",
-            3110400,
-            60,
-            60,
-            1920,
-            1080,
-            1498 * 1000
-    );
-
-    private static final RawVideoFile Netflix_DinnerScene_1080p_60fps_2s_h264 = new RawVideoFile(
-            "2s_Netflix_DinnerScene_1080p_60fps_yuv420p.yuv",
-            "h264",
-            3110400,
-            60,
-            120,
-            1920,
-            1080,
-            1498 * 1000
-    );
-
-    private static final RawVideoFile Netflix_DinnerScene_4K_60fps_1s_h264 = new RawVideoFile(
-            "1s_Netflix_DinnerScene_4K_60fps_yuv420p.yuv",
-            "h264",
-            13271040,
-            60,
-            60,
-            4096,
-            2160,
-            10027 * 1000
-    );
-
-    private static final RawVideoFile Netflix_DinnerScene_4K_30fps_1s_h264 = new RawVideoFile(
-            "1s_Netflix_DinnerScene_4K_30fps_yuv420p.yuv",
-            "h264",
-            13271040,
-            30,
-            30,
-            4096,
-            2160,
-            10027 * 1000
-    );
 
     private static final RawVideoFile Netflix_DinnerScene_4K_60fps_h264 = new RawVideoFile(
             "Netflix_DinnerScene_4K_60fps_yuv420p.yuv",
@@ -152,7 +47,7 @@ public class MediaCodecOp {
             1199,
             4096,
             2160,
-            10027 * 1000
+            10024 * 1000
     );
 
     /**
@@ -162,7 +57,7 @@ public class MediaCodecOp {
      * @param RECORD:  dump to file using MediaMuxer or not.
      */
     public static void encodeVideoFromFileAsyncWithMuxer(String appPath, boolean RECORD) {
-        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_2s_h264;
+        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_h264;
         Log.i(TAG, "encodeVideoFromFileAsync: encoding file asynchronously: " + video.filename);
         String MIME_TYPE = video.type;
         double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
@@ -246,7 +141,7 @@ public class MediaCodecOp {
 
     public static void encodeVideoFromFileAsync(String appPath) {
         // RawVideoFile video = Netflix_DinnerScene_1080p_60fps_h264;
-        RawVideoFile video = Netflix_DinnerScene_4K_60fps_h264;
+        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_h264;
         Log.i(TAG, "encodeVideoFromFileAsync: encoding file asynchronously: " + video.filename);
         String MIME_TYPE = video.type;
         double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
@@ -266,7 +161,8 @@ public class MediaCodecOp {
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
 
             appPath = "/data/local/tmp";
-            List<ByteBuffer> frameList = procRawVideoFile(appPath, video, 40);
+            // Remember to change the frame number
+            List<ByteBuffer> frameList = procRawVideoFile(appPath, video, 150);
 
             encoder = MediaCodec.createByCodecName(codecInfo.getName());
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
@@ -300,7 +196,7 @@ public class MediaCodecOp {
                     finishedFrameNum++;
                     if (finishedFrameNum == totalFrameNum) {
                         end = System.currentTimeMillis();
-                        Log.i(TAG, "onOutputBufferAvailable: finish encoding in " + (end-st) + " ms");
+                        Log.i(TAG, "onOutputBufferAvailable: finish encoding in " + (end - st) + " ms");
                     }
                     codec.releaseOutputBuffer(index, false);
                 }
@@ -328,9 +224,8 @@ public class MediaCodecOp {
     }
 
 
-
     public static void encodeVideoFromFileSync(String appPath) {
-        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_2s_h264;
+        RawVideoFile video = Netflix_DinnerScene_1080p_60fps_h264;
         Log.i(TAG, "encodeVideoFromFileSync: encoding: " + video.filename);
         String MIME_TYPE = video.type;  // H.264 or Hevc encoding
         double EACH_FRAME_TIME_SLOT = (1000 * 1000) / (double) video.frameRate;  // milliseconds
@@ -463,9 +358,9 @@ public class MediaCodecOp {
      * Processing a raw video file in YUV420P pixel format, returns a List object containing ByteBuffer
      * object of each frame.
      *
-     * @param appPath: application internal storage path.
+     * @param appPath:      application internal storage path.
      * @param rawVideoFile: RawVideoFile object contains the encoding info (path, bitrate, etc).
-     * @param frameNum: total extracting frame number from raw video file, if -1, extract all frames.
+     * @param frameNum:     total extracting frame number from raw video file, if -1, extract all frames.
      */
     public static List<ByteBuffer> procRawVideoFile(String appPath, RawVideoFile rawVideoFile, int frameNum) {
         String rawPath = appPath + "/" + rawVideoFile.filename;
@@ -626,7 +521,7 @@ public class MediaCodecOp {
                     finishedFrameNum++;
                     if (finishedFrameNum == totalFrameNum) {
                         end = System.currentTimeMillis();
-                        Log.i(TAG, "onOutputBufferAvailable: end-to-end time in asynchronous mode: " + (end-st) + " ms");
+                        Log.i(TAG, "onOutputBufferAvailable: end-to-end time in asynchronous mode: " + (end - st) + " ms");
                     }
                     codec.releaseOutputBuffer(index, false);
                 }
@@ -699,7 +594,7 @@ public class MediaCodecOp {
                     finishedFrameNum++;
                     if (finishedFrameNum == totalFrames) {
                         end = System.currentTimeMillis();
-                        Log.i(TAG, "onOutputBufferAvailable: end-to-end time in asynchronous mode: " + (end-st));
+                        Log.i(TAG, "onOutputBufferAvailable: end-to-end time in asynchronous mode: " + (end - st));
                     }
                     codec.releaseOutputBuffer(index, false);
                 }
